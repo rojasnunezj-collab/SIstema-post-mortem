@@ -20,7 +20,6 @@ class DatosEscalamiento(BaseModel):
 
 def extraer_datos_gemini(imagen_pil):
     """Envía la imagen a Gemini y recupera los datos estructurados."""
-    # Obtenemos la API key de los secrets de Streamlit o del entorno local
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
@@ -36,13 +35,14 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
+        # Apuntamos a la versión más reciente y estable de Flash
         response = client.models.generate_content(
-            model='gemini-1.5-flash', # VERSIÓN CORREGIDA AQUÍ
+            model='gemini-2.0-flash',
             contents=[prompt, imagen_pil],
             config={
                 "response_mime_type": "application/json",
                 "response_schema": DatosEscalamiento,
-                "temperature": 0.1 # Temperatura baja para que sea muy preciso
+                "temperature": 0.1
             },
         )
         return json.loads(response.text)
