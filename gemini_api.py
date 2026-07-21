@@ -40,6 +40,7 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     modelos_seguros = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
+    ultimo_error = ""
     
     for modelo in modelos_seguros:
         try:
@@ -52,9 +53,15 @@ def extraer_datos_gemini(imagen_pil):
                 )
             )
             st.toast(f"✅ ¡Datos extraídos usando: {modelo}!", icon="🚀")
-            return json.loads(response.text)
+            
+            # Limpieza forzada del texto por si la IA devuelve formato Markdown
+            texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
+            
+            return json.loads(texto_limpio)
+            
         except Exception as e:
+            ultimo_error = str(e)
             continue
             
-    st.error("❌ Los modelos fallaron al leer la imagen.")
+    st.error(f"❌ Los modelos fallaron al leer la imagen. Error exacto: {ultimo_error}")
     return None
