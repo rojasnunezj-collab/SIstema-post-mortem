@@ -5,43 +5,41 @@ import streamlit as st
 import google.generativeai as genai
 
 def extraer_datos_gemini(imagen_pil):
-    """Envía la imagen probando solo los modelos de visión más rápidos y estables."""
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
-        st.error("⚠️ No se encontró la API Key de Gemini en los Secrets.")
+        st.error("⚠️ No se encontró la API Key.")
         return None
         
     genai.configure(api_key=api_key)
     
     prompt = """
-    Extrae los datos de esta imagen de escalamiento. 
-    Limpia el nombre del agente para dejar solo nombre y apellido, sin el @ ni prefijos.
-    Analiza el problema y sugiere las tipificaciones CCR3 más precisas.
+    Eres un auditor experto de Operaciones Digitales. Analiza esta captura de pantalla de un caso de soporte y extrae los datos.
+    
+    REGLAS ESTRICTAS:
+    1. Si un dato no está visible, déjalo en blanco "". No inventes.
+    2. Agente: Extrae solo el Nombre y Apellido.
+    3. Montos: Busca valores numéricos con el símbolo $. Conviértelos a formato numérico (ej. si dice $22.644, escribe 22644.0).
+    4. Resumen: Lee todo el texto del problema y haz un resumen conciso de máximo 2 líneas.
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
     {
-        "hora": "La hora del mensaje (ej. 6:02 PM)",
-        "agente_escala": "Nombre y apellido",
-        "caso": "El tipo de caso",
-        "numero_caso": "Número de caso",
-        "pais": "País mencionado",
-        "correo": "Correo electrónico",
+        "hora": "Hora visible en el mensaje",
+        "agente_escala": "Nombre del agente",
+        "caso": "Tipo de caso reportado",
+        "numero_caso": "ID o número de caso",
+        "pais": "País mencionado (ej. Chile, Perú, etc)",
+        "correo": "Correo del cliente",
         "pedido_link": "Enlace completo",
-        "order_id": "El ID numérico extraído del enlace",
-        "motivo_reclamo": "Resumen muy breve del problema",
-        "ccr3": "Lista de CCR3 sugeridos"
+        "order_id": "ID del pedido o pago (ej. PAY3-...)",
+        "motivo_reclamo": "Resumen conciso del problema de 1 o 2 líneas",
+        "ccr3": "Sugerencia temporal de categoría",
+        "monto_pedido": 0.0,
+        "monto_devolucion": 0.0
     }
     """
     
-    # Lista estricta solo con los modelos actuales de visión
-    modelos_seguros = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-8b',
-        'gemini-1.5-pro'
-    ]
-    
-    ultimo_error = ""
+    modelos_seguros = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
     
     for modelo in modelos_seguros:
         try:
@@ -53,15 +51,10 @@ def extraer_datos_gemini(imagen_pil):
                     temperature=0.1
                 )
             )
-            
             st.toast(f"✅ ¡Datos extraídos usando: {modelo}!", icon="🚀")
             return json.loads(response.text)
-            
         except Exception as e:
-            ultimo_error = str(e)
-            print(f"Fallo controlado con {modelo}: {ultimo_error}") # Se verá en los logs de Streamlit
             continue
             
-    # Si falla con los 3 principales, lo mostramos de inmediato sin dejarlo cargando
-    st.error(f"❌ Los modelos de visión fallaron. Último error: {ultimo_error}")
+    st.error("❌ Los modelos fallaron al leer la imagen.")
     return None
