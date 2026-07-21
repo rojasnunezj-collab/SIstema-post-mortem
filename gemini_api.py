@@ -39,29 +39,41 @@ def extraer_datos_gemini(imagen_pil):
     }
     """
     
-    modelos_seguros = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
-    ultimo_error = ""
-    
-    for modelo in modelos_seguros:
-        try:
-            model = genai.GenerativeModel(modelo)
-            response = model.generate_content(
-                [prompt, imagen_pil],
-                generation_config=genai.GenerationConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1
+    try:
+        # Obtenemos dinámicamente solo los modelos que soportan imágenes/contenido
+        modelos_disponibles = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        
+        if not modelos_disponibles:
+            st.error("❌ Tu API Key no tiene modelos disponibles para generar contenido.")
+            return None
+            
+        ultimo_error = ""
+        
+        for nombre_modelo in modelos_disponibles:
+            try:
+                model = genai.GenerativeModel(nombre_modelo)
+                response = model.generate_content(
+                    [prompt, imagen_pil],
+                    generation_config=genai.GenerationConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
                 )
-            )
-            st.toast(f"✅ ¡Datos extraídos usando: {modelo}!", icon="🚀")
-            
-            # Limpieza forzada del texto por si la IA devuelve formato Markdown
-            texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
-            
-            return json.loads(texto_limpio)
-            
-        except Exception as e:
-            ultimo_error = str(e)
-            continue
-            
-    st.error(f"❌ Los modelos fallaron al leer la imagen. Error exacto: {ultimo_error}")
-    return None
+                st.toast(f"✅ ¡Datos extraídos usando: {nombre_modelo}!", icon="🚀")
+                
+                texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
+                return json.loads(texto_limpio)
+                
+            except Exception as e:
+                ultimo_error = str(e)
+                continue
+                
+        st.error(f"❌ Todos los modelos disponibles fallaron. Último error: {ultimo_error}")
+        return None
+        
+    except Exception as e:
+        st.error(f"❌ Error al listar los modelos de la API: {e}")
+        return None
