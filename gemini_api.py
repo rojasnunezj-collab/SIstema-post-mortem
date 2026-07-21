@@ -2,7 +2,8 @@
 import os
 import json
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 def extraer_datos_gemini(imagen_pil):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
@@ -11,7 +12,7 @@ def extraer_datos_gemini(imagen_pil):
         st.error("⚠️ No se encontró la API Key.")
         return None
         
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     
     prompt = """
     Eres un auditor experto de Operaciones Digitales. Analiza las capturas de pantalla de un caso de soporte y extrae los datos.
@@ -55,11 +56,10 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        response = model.generate_content(
-            [prompt, imagen_pil],
-            generation_config=genai.GenerationConfig(
+        response = client.models.generate_content(
+            model='gemini-3.0-flash',
+            contents=[prompt, imagen_pil],
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.1
             )

@@ -1,7 +1,7 @@
 # text_processor.py
 import os
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
 def mejorar_redaccion(borrador):
     """
@@ -14,7 +14,7 @@ def mejorar_redaccion(borrador):
         st.error("⚠️ No se encontró la API Key de Gemini.")
         return None
         
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     
     prompt = f"""
     Actúa como un auditor de operaciones digitales y control de calidad. 
@@ -31,8 +31,10 @@ def mejorar_redaccion(borrador):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-3.0-flash',
+            contents=prompt,
+        )
         return response.text
     except Exception as e:
         st.error(f"❌ Error al mejorar la redacción con IA: {e}")
