@@ -2,68 +2,54 @@
 import os
 import json
 import streamlit as st
-from google import genai
-from pydantic import BaseModel, Field
-
-# --- ESTRUCTURA EXACTA PARA GEMINI ---
-class DatosEscalamiento(BaseModel):
-    hora: str = Field(description="La hora del mensaje (ej. 6:02 PM).")
-    agente_escala: str = Field(description="Nombre y apellido del agente, sin el @ ni prefijos/sufijos como SM_ o _NDO.")
-    caso: str = Field(description="El tipo de caso.")
-    numero_caso: str = Field(description="El número de caso.")
-    pais: str = Field(description="País mencionado.")
-    correo: str = Field(description="Correo electrónico del usuario.")
-    pedido_link: str = Field(description="Enlace completo del pedido.")
-    order_id: str = Field(description="El ID numérico del pedido extraído del enlace.")
-    motivo_reclamo: str = Field(description="Resumen breve del problema.")
-    ccr3: str = Field(description="Lista de CCR3 sugeridos basados en el problema (ej: Calidad de la comida, Producto incorrecto, etc).")
+import google.generativeai as genai
 
 def extraer_datos_gemini(imagen_pil):
-    """Envía la imagen a Gemini iterando sobre los modelos disponibles hasta lograr conexión."""
+    """Envía la imagen a Gemini usando la librería clásica y estable para garantizar la conexión."""
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
         st.error("⚠️ No se encontró la API Key de Gemini en los Secrets.")
         return None
         
-    client = genai.Client(api_key=api_key)
+    # Configuración de la librería clásica
+    genai.configure(api_key=api_key)
     
     prompt = """
-    Extrae los datos de esta imagen de escalamiento según la estructura requerida. 
-    Limpia el nombre del agente para dejar solo nombre y apellido.
+    Extrae los datos de esta imagen de escalamiento. 
+    Limpia el nombre del agente para dejar solo nombre y apellido, sin el @ ni prefijos.
     Analiza el problema y sugiere las tipificaciones CCR3 más precisas.
+    
+    Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
+    {
+        "hora": "La hora del mensaje (ej. 6:02 PM)",
+        "agente_escala": "Nombre y apellido",
+        "caso": "El tipo de caso",
+        "numero_caso": "Número de caso",
+        "pais": "País mencionado",
+        "correo": "Correo electrónico",
+        "pedido_link": "Enlace completo",
+        "order_id": "El ID numérico extraído del enlace",
+        "motivo_reclamo": "Resumen muy breve del problema",
+        "ccr3": "Lista de CCR3 sugeridos"
+    }
     """
     
-    # Lista de modelos a probar (del más ideal al más general)
-    modelos_fallback = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
-    ]
-    
-    ultimo_error = None
-    
-    for modelo in modelos_fallback:
-        try:
-            response = client.models.generate_content(
-                model=modelo,
-                contents=[prompt, imagen_pil],
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": DatosEscalamiento,
-                    "temperature": 0.1
-                },
+    try:
+        # Usamos el modelo más estable y rápido disponible
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        response = model.generate_content(
+            [prompt, imagen_pil],
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.1 # Temperatura baja para que no alucine datos
             )
-            # Si la petición es exitosa, informamos qué modelo se usó y retornamos los datos
-            st.toast(f"Conexión exitosa usando: {modelo}", icon="🚀")
-            return json.loads(response.text)
-            
-        except Exception as e:
-            ultimo_error = str(e)
-            print(f"Fallo al intentar con {modelo}: {ultimo_error}")
-            continue # Pasa al siguiente modelo de la lista
-            
-    # Si termina el bucle y no ha retornado datos, mostramos el último error
-    st.error(f"❌ Error crítico: Ningún modelo está disponible en tu API Key. Último error: {ultimo_error}")
-    return None
+        )
+        
+        st.toast("✅ Conexión exitosa y datos extraídos.", icon="🚀")
+        return json.loads(response.text)
+        
+    except Exception as e:
+        st.error(f"❌ Error al procesar la imagen con la IA: {e}")
+        return None

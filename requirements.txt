@@ -1,6 +1,6 @@
 streamlit
 pandas
-google-genai
+google-generativeai
 pydantic
 gspread
 oauth2client
