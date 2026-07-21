@@ -46,9 +46,14 @@ def main():
                 
                 with col1:
                     caso_nro = st.text_input("Número de Caso", value=d.get("numero_caso", ""))
+                    caso = st.text_input("Caso", value=d.get("caso", ""))
                     hora = st.text_input("Hora", value=d.get("hora", ""))
+                    inicio_pm = st.text_input("Inicio PM (Ingreso manual)", placeholder="Ej: 6:00 PM")
                     agente = st.text_input("Agente", value=d.get("agente_escala", ""))
                     pais = st.text_input("País", value=d.get("pais", ""))
+                    numeros = st.text_input("Números", value=d.get("numeros", ""))
+                    fraude_operacional = st.text_input("Fraude Operacional", value=d.get("fraude_operacional", ""))
+                    contactos = st.text_input("Contactos", value=d.get("contactos", ""))
                     
                     limite_pais = LIMITES_PAIS.get(d.get("pais", ""), 0)
                     st.caption(f"Límite máximo para {d.get('pais', 'País')}: **${limite_pais}**")
@@ -56,8 +61,12 @@ def main():
                 with col2:
                     correo = st.text_input("Correo", value=d.get("correo", ""))
                     order_id = st.text_input("Order ID", value=d.get("order_id", ""))
-                    ccr3 = st.text_input("CCR3 Sugerido (Próximamente desde Sheet)", value=d.get("ccr3", ""))
+                    user_id = st.text_input("User ID", value=d.get("user_id", ""))
+                    pedido_link = st.text_input("Link Pedido", value=d.get("pedido_link", ""))
+                    ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
                     fin_accion = st.text_input("Fin de Acción (Ingreso manual)", placeholder="Ej: 6:15 PM")
+                    fraude_fintech = st.text_input("Fraude Fintech", value=d.get("fraude_fintech", ""))
+                    seguidores = st.text_input("Seguidores", value=d.get("seguidores", ""))
                 
                 problema = st.text_area("Problema Reportado (Resumido)", value=d.get("motivo_reclamo", ""), height=80)
                 
@@ -91,6 +100,55 @@ def main():
                 resolucion = st.text_area("Pega aquí tu borrador. La IA lo limpiará de muletillas en el siguiente paso.", height=150)
                 
                 submit = st.form_submit_button("Aprobar Datos y Continuar", type="primary")
+
+            if submit:
+                # 1. Reunir los datos finales (con posibles ediciones manuales)
+                datos_finales = {
+                    "numero_caso": caso_nro,
+                    "caso": caso,
+                    "hora": hora,
+                    "inicio_pm": inicio_pm,
+                    "fin_accion": fin_accion,
+                    "agente_escala": agente,
+                    "pais": pais,
+                    "correo": correo,
+                    "order_id": order_id,
+                    "user_id": user_id,
+                    "pedido_link": pedido_link,
+                    "ccr3": ccr3,
+                    "motivo_reclamo": problema,
+                    "monto_pedido": monto_pedido,
+                    "monto_devolucion": devolucion,
+                    "compensacion": compensacion,
+                    "total": total,
+                    "numeros": numeros,
+                    "fraude_operacional": fraude_operacional,
+                    "fraude_fintech": fraude_fintech,
+                    "seguidores": seguidores,
+                    "contactos": contactos,
+                    "limite": limite_pais,
+                    "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE"
+                }
+                
+                with st.spinner("1/3 Mejorando redacción del borrador..."):
+                    from text_processor import mejorar_redaccion
+                    resolucion_limpia = mejorar_redaccion(resolucion) if resolucion.strip() else "Sin resolución proporcionada."
+                
+                if resolucion_limpia:
+                    st.info("Texto mejorado por IA:\n" + resolucion_limpia)
+                    with st.spinner("2/3 Guardando en Google Sheets..."):
+                        from google_services import registrar_en_sheet, generar_documento_postmortem
+                        exito_sheet = registrar_en_sheet(datos_finales, resolucion_limpia)
+                        
+                    if exito_sheet:
+                        st.success("✅ Datos registrados en Google Sheets.")
+                        with st.spinner("3/3 Generando Google Doc..."):
+                            doc_link = generar_documento_postmortem(datos_finales, resolucion_limpia)
+                        
+                        if doc_link:
+                            st.success("✅ ¡Proceso completado con éxito!")
+                            st.markdown(f"📄 **Documento generado:** [Abrir Postmortem en Google Docs]({doc_link})")
+                            st.balloons()
 
 if __name__ == "__main__":
     if check_login():

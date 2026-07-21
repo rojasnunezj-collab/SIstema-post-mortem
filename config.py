@@ -24,3 +24,7 @@ LIMITES_PAIS = {
     "Uruguay": 2175, 
     "Venezuela": 55
 }
+
+# Configuración de Google Workspace
+SPREADSHEET_ID = "1rpPka7dU3NvFxRpOtI-Muk6nqqqDguIMpn2Oq0yWWc4"
+DOC_TEMPLATE_ID = "1jV2RtoyoQwBoE_xiz7MMzIj2iZDPAgde"
