@@ -55,40 +55,20 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        # Obtenemos dinámicamente solo los modelos que soportan imágenes/contenido
-        modelos_disponibles = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        if not modelos_disponibles:
-            st.error("❌ Tu API Key no tiene modelos disponibles para generar contenido.")
-            return None
-            
-        ultimo_error = ""
+        response = model.generate_content(
+            [prompt, imagen_pil],
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.1
+            )
+        )
+        st.toast(f"✅ ¡Datos extraídos con éxito!", icon="🚀")
         
-        for nombre_modelo in modelos_disponibles:
-            try:
-                model = genai.GenerativeModel(nombre_modelo)
-                response = model.generate_content(
-                    [prompt, imagen_pil],
-                    generation_config=genai.GenerationConfig(
-                        response_mime_type="application/json",
-                        temperature=0.1
-                    )
-                )
-                st.toast(f"✅ ¡Datos extraídos usando: {nombre_modelo}!", icon="🚀")
-                
-                texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
-                return json.loads(texto_limpio)
-                
-            except Exception as e:
-                ultimo_error = str(e)
-                continue
-                
-        st.error(f"❌ Todos los modelos disponibles fallaron. Último error: {ultimo_error}")
-        return None
+        texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
+        return json.loads(texto_limpio)
         
     except Exception as e:
-        st.error(f"❌ Error al listar los modelos de la API: {e}")
+        st.error(f"❌ Error al procesar con IA: {e}")
         return None
