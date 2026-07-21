@@ -35,9 +35,9 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        # Apuntamos a la versión más reciente y estable de Flash
+        # Usamos la versión exacta y estable 002
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash-002',
             contents=[prompt, imagen_pil],
             config={
                 "response_mime_type": "application/json",
