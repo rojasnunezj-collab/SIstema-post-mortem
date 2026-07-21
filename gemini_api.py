@@ -19,7 +19,7 @@ class DatosEscalamiento(BaseModel):
     ccr3: str = Field(description="Lista de CCR3 sugeridos basados en el problema (ej: Calidad de la comida, Producto incorrecto, etc).")
 
 def extraer_datos_gemini(imagen_pil):
-    """Envía la imagen a Gemini y recupera los datos estructurados."""
+    """Envía la imagen a Gemini iterando sobre los modelos disponibles hasta lograr conexión."""
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
@@ -34,18 +34,36 @@ def extraer_datos_gemini(imagen_pil):
     Analiza el problema y sugiere las tipificaciones CCR3 más precisas.
     """
     
-    try:
-        # Usamos la versión exacta y estable 002
-        response = client.models.generate_content(
-            model='gemini-1.5-flash-002',
-            contents=[prompt, imagen_pil],
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": DatosEscalamiento,
-                "temperature": 0.1
-            },
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        st.error(f"❌ Error al procesar la imagen con la IA: {e}")
-        return None
+    # Lista de modelos a probar (del más ideal al más general)
+    modelos_fallback = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
+    ]
+    
+    ultimo_error = None
+    
+    for modelo in modelos_fallback:
+        try:
+            response = client.models.generate_content(
+                model=modelo,
+                contents=[prompt, imagen_pil],
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": DatosEscalamiento,
+                    "temperature": 0.1
+                },
+            )
+            # Si la petición es exitosa, informamos qué modelo se usó y retornamos los datos
+            st.toast(f"Conexión exitosa usando: {modelo}", icon="🚀")
+            return json.loads(response.text)
+            
+        except Exception as e:
+            ultimo_error = str(e)
+            print(f"Fallo al intentar con {modelo}: {ultimo_error}")
+            continue # Pasa al siguiente modelo de la lista
+            
+    # Si termina el bucle y no ha retornado datos, mostramos el último error
+    st.error(f"❌ Error crítico: Ningún modelo está disponible en tu API Key. Último error: {ultimo_error}")
+    return None
