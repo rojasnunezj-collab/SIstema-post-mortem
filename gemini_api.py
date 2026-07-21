@@ -5,7 +5,7 @@ import streamlit as st
 import google.generativeai as genai
 
 def extraer_datos_gemini(imagen_pil):
-    """Envía la imagen a Gemini detectando automáticamente el modelo disponible."""
+    """Envía la imagen iterando sobre todos los modelos de la API Key hasta que uno funcione."""
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
@@ -14,33 +14,6 @@ def extraer_datos_gemini(imagen_pil):
         
     genai.configure(api_key=api_key)
     
-    # 1. AUTODETECCIÓN INTELIGENTE DEL MODELO
-    modelo_elegido = None
-    try:
-        # Le preguntamos a Google qué modelos soporta esta API Key
-        modelos_disponibles = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        
-        if not modelos_disponibles:
-            st.error("❌ Tu API Key no tiene modelos asignados. Revisa que 'Generative Language API' esté habilitada en Google Cloud.")
-            return None
-            
-        # Buscamos nuestra primera opción (flash), si no, usamos el que esté disponible
-        for m in modelos_disponibles:
-            if '1.5-flash' in m:
-                modelo_elegido = m
-                break
-        
-        if not modelo_elegido:
-            modelo_elegido = modelos_disponibles[0] # Agarra el primero de la lista de Google
-            
-    except Exception as e:
-        st.error(f"❌ Error al consultar a Google los modelos disponibles: {e}")
-        return None
-
-    # 2. PROCESAMIENTO
     prompt = """
     Extrae los datos de esta imagen de escalamiento. 
     Limpia el nombre del agente para dejar solo nombre y apellido, sin el @ ni prefijos.
@@ -62,18 +35,43 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        model = genai.GenerativeModel(modelo_elegido)
-        response = model.generate_content(
-            [prompt, imagen_pil],
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=0.1
-            )
-        )
+        # Obtenemos absolutamente todos los modelos que soportan generación de contenido
+        modelos_disponibles = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
         
-        st.toast(f"✅ Extraído con éxito usando: {modelo_elegido}", icon="🚀")
-        return json.loads(response.text)
+        if not modelos_disponibles:
+            st.error("❌ Tu API Key no tiene modelos asignados. Revisa tu proyecto en Google Cloud.")
+            return None
+            
+        ultimo_error = ""
+        
+        # EL BUCLE INDESTRUCTIBLE: Prueba uno por uno
+        for nombre_modelo in modelos_disponibles:
+            try:
+                model = genai.GenerativeModel(nombre_modelo)
+                response = model.generate_content(
+                    [prompt, imagen_pil],
+                    generation_config=genai.GenerationConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
+                )
+                
+                # Si llega a esta línea, el modelo funcionó. Salimos del bucle.
+                st.toast(f"✅ ¡Éxito! Datos extraídos usando: {nombre_modelo}", icon="🚀")
+                return json.loads(response.text)
+                
+            except Exception as e:
+                # Si falla, guardamos el error en silencio y pasamos al siguiente modelo
+                ultimo_error = str(e)
+                continue
+                
+        # Si termina el bucle y ninguno funcionó, mostramos el error del último intento
+        st.error(f"❌ Todos los modelos fallaron. Último error: {ultimo_error}")
+        return None
         
     except Exception as e:
-        st.error(f"❌ Error al procesar con el modelo {modelo_elegido}: {e}")
+        st.error(f"❌ Error al conectar con Google Cloud: {e}")
         return None
