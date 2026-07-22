@@ -5,6 +5,30 @@ import re
 import streamlit as st
 import google.generativeai as genai
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_modelo_valido(api_key):
+    """Encuentra y prueba el mejor modelo disponible para esta API key, y lo cachea por 1 hora."""
+    genai.configure(api_key=api_key)
+    try:
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    except Exception:
+        return None
+
+    # Ordenar para priorizar los modelos 'flash' (más rápidos)
+    flash_models = [m for m in modelos if 'flash' in m.lower()]
+    otros_models = [m for m in modelos if 'flash' not in m.lower()]
+    
+    for nombre_modelo in (flash_models + otros_models):
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            # Prueba de vida rápida para descartar los modelos obsoletos o con error 404
+            if model.generate_content("Hola"):
+                return nombre_modelo
+        except Exception:
+            continue
+            
+    return None
+
 def extraer_datos_gemini(imagen_pil):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
@@ -16,6 +40,12 @@ def extraer_datos_gemini(imagen_pil):
         genai.configure(api_key=api_key.strip())
     except Exception as e:
         st.error(f"❌ Error API: {e}")
+        return None
+    
+    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    
+    if not modelo_seguro:
+        st.error("❌ Ningún modelo en tu API Key funcionó o todos devolvieron error 404.")
         return None
     
     prompt = """
@@ -59,36 +89,13 @@ def extraer_datos_gemini(imagen_pil):
     }
     """
     
-    modelos_fallback = [
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-002',
-        'gemini-1.5-flash',
-        'gemini-pro'
-    ]
-    
-    response = None
-    ultimo_error = ""
-    
-    for nombre_modelo in modelos_fallback:
-        try:
-            model = genai.GenerativeModel(nombre_modelo)
-            response = model.generate_content([prompt, imagen_pil])
-            if response:
-                st.toast(f"✅ ¡Datos extraídos con éxito usando {nombre_modelo}!", icon="🚀")
-                break
-        except Exception as e:
-            ultimo_error = str(e)
-            continue
-            
-    if not response:
-        st.error(f"❌ Error al procesar con IA. Último error: {ultimo_error}")
-        return None
-
     try:
+        model = genai.GenerativeModel(modelo_seguro)
+        response = model.generate_content([prompt, imagen_pil])
+        
         match = re.search(r'\{.*\}', response.text.replace("```json", "").replace("```", ""), re.DOTALL)
         if match: 
+            st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🚀")
             return json.loads(match.group(0))
         return None
         

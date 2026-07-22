@@ -3,6 +3,28 @@ import os
 import streamlit as st
 import google.generativeai as genai
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_modelo_valido(api_key):
+    """Encuentra y prueba el mejor modelo disponible para esta API key, y lo cachea por 1 hora."""
+    genai.configure(api_key=api_key)
+    try:
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    except Exception:
+        return None
+
+    flash_models = [m for m in modelos if 'flash' in m.lower()]
+    otros_models = [m for m in modelos if 'flash' not in m.lower()]
+    
+    for nombre_modelo in (flash_models + otros_models):
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            if model.generate_content("Hola"):
+                return nombre_modelo
+        except Exception:
+            continue
+            
+    return None
+
 def mejorar_redaccion(borrador):
     """
     Toma el texto crudo del analista y lo reescribe con tono ejecutivo, 
@@ -19,6 +41,12 @@ def mejorar_redaccion(borrador):
     except Exception as e:
         st.error(f"❌ Error API: {e}")
         return None
+        
+    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    
+    if not modelo_seguro:
+        st.error("❌ Ningún modelo en tu API Key funcionó.")
+        return None
     
     prompt = f"""
     Actúa como un auditor de operaciones digitales y control de calidad. 
@@ -34,30 +62,10 @@ def mejorar_redaccion(borrador):
     {borrador}
     """
     
-    modelos_fallback = [
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-002',
-        'gemini-1.5-flash',
-        'gemini-pro'
-    ]
-    
-    response = None
-    ultimo_error = ""
-    
-    for nombre_modelo in modelos_fallback:
-        try:
-            model = genai.GenerativeModel(nombre_modelo)
-            response = model.generate_content(prompt)
-            if response:
-                break
-        except Exception as e:
-            ultimo_error = str(e)
-            continue
-            
-    if response:
+    try:
+        model = genai.GenerativeModel(modelo_seguro)
+        response = model.generate_content(prompt)
         return response.text
-    else:
-        st.error(f"❌ Error al mejorar la redacción con IA. Último error: {ultimo_error}")
+    except Exception as e:
+        st.error(f"❌ Error al mejorar la redacción con IA: {e}")
         return None
