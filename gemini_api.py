@@ -59,20 +59,39 @@ def extraer_datos_gemini(imagen_pil):
     }
     """
     
-    try:
-        model = genai.GenerativeModel('gemini-3.0-flash')
-    except Exception as e:
-        st.error(f"❌ Error conectando con Gemini: {e}")
+    modelos_fallback = [
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-002',
+        'gemini-1.5-flash',
+        'gemini-pro'
+    ]
+    
+    response = None
+    ultimo_error = ""
+    
+    for nombre_modelo in modelos_fallback:
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            response = model.generate_content([prompt, imagen_pil])
+            if response:
+                st.toast(f"✅ ¡Datos extraídos con éxito usando {nombre_modelo}!", icon="🚀")
+                break
+        except Exception as e:
+            ultimo_error = str(e)
+            continue
+            
+    if not response:
+        st.error(f"❌ Error al procesar con IA. Último error: {ultimo_error}")
         return None
 
     try:
-        response = model.generate_content([prompt, imagen_pil])
         match = re.search(r'\{.*\}', response.text.replace("```json", "").replace("```", ""), re.DOTALL)
         if match: 
-            st.toast(f"✅ ¡Datos extraídos con éxito!", icon="🚀")
             return json.loads(match.group(0))
         return None
         
     except Exception as e:
-        st.error(f"❌ Error al procesar con IA: {e}")
+        st.error(f"❌ Error parseando JSON: {e}")
         return None

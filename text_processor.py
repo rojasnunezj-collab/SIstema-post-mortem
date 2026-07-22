@@ -34,15 +34,30 @@ def mejorar_redaccion(borrador):
     {borrador}
     """
     
-    try:
-        model = genai.GenerativeModel('gemini-3.0-flash')
-    except Exception as e:
-        st.error(f"❌ Error conectando con Gemini: {e}")
-        return None
-
-    try:
-        response = model.generate_content(prompt)
+    modelos_fallback = [
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-002',
+        'gemini-1.5-flash',
+        'gemini-pro'
+    ]
+    
+    response = None
+    ultimo_error = ""
+    
+    for nombre_modelo in modelos_fallback:
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            response = model.generate_content(prompt)
+            if response:
+                break
+        except Exception as e:
+            ultimo_error = str(e)
+            continue
+            
+    if response:
         return response.text
-    except Exception as e:
-        st.error(f"❌ Error al mejorar la redacción con IA: {e}")
+    else:
+        st.error(f"❌ Error al mejorar la redacción con IA. Último error: {ultimo_error}")
         return None
