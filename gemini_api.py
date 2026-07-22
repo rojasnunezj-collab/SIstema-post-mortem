@@ -29,6 +29,8 @@ def obtener_modelo_valido(api_key):
             
     return None
 
+from google_services import obtener_catalogo_ccr3
+
 def extraer_datos_gemini(imagen_pil):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
@@ -47,8 +49,12 @@ def extraer_datos_gemini(imagen_pil):
     if not modelo_seguro:
         st.error("❌ Ningún modelo en tu API Key funcionó o todos devolvieron error 404.")
         return None
+        
+    # Obtener CCR3 dinámicamente
+    ccr3_opciones = obtener_catalogo_ccr3()
+    ccr3_texto = "\n- ".join(ccr3_opciones[:50]) # Limitar a 50 si hay muchos para evitar sobrecarga de tokens
     
-    prompt = """
+    prompt = f"""
     Eres un auditor experto de Operaciones Digitales. Analiza las capturas de pantalla de un caso de soporte y extrae los datos.
     
     REGLAS ESTRICTAS DE EXTRACCIÓN:
@@ -61,13 +67,15 @@ def extraer_datos_gemini(imagen_pil):
     7. CORREO: Extrae el texto al lado de "Correo:".
     8. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
     9. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
-    10. MOTIVO DE RECLAMO: Resume el motivo del reclamo en máximo 3 líneas, sintetizando sin eliminar cosas importantes.
-    11. CCR3: Basado en tu resumen del motivo, sugiere la categoría de resolución (máximo 3 palabras).
+    10. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
+    11. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
+    - {ccr3_texto}
+    Si no estás seguro, elige la más parecida, pero NUNCA inventes una categoría fuera de esa lista.
     12. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
     13. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
-    {
+    {{
         "hora": "Hora visible en el mensaje",
         "agente_escala": "Nombre del agente",
         "caso": "Tipo de caso reportado",
@@ -78,7 +86,7 @@ def extraer_datos_gemini(imagen_pil):
         "order_id": "ID del pedido o pago (ej. PAY3-...)",
         "user_id": "User ID si aparece",
         "motivo_reclamo": "Resumen conciso del problema de 1 o 2 líneas",
-        "ccr3": "Sugerencia temporal de categoría",
+        "ccr3": "Categoría exacta del catálogo provisto",
         "monto_pedido": 0.0,
         "monto_devolucion": 0.0,
         "numeros": "Números de contacto o referencia si los hay",
@@ -86,7 +94,7 @@ def extraer_datos_gemini(imagen_pil):
         "fraude_fintech": "Indicador o texto de fraude fintech",
         "seguidores": "Cantidad de seguidores si aplica",
         "contactos": "Contactos mencionados si aplica"
-    }
+    }}
     """
     
     try:

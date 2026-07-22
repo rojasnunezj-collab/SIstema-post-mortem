@@ -41,59 +41,75 @@ def main():
             st.subheader("Auditoría de Datos y Cálculos")
             d = st.session_state["datos_extraidos"]
             
+            # Obtener limites dinámicos
+            from google_services import obtener_limites_pais
+            limites_dict = obtener_limites_pais()
+            
             with st.form("form_postmortem"):
+                # Organizamos los campos en el orden exacto solicitado
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    caso_nro = st.text_input("Número de Caso", value=d.get("numero_caso", ""))
-                    caso = st.text_input("Caso", value=d.get("caso", ""))
-                    hora = st.text_input("Hora", value=d.get("hora", ""))
-                    inicio_pm = st.text_input("Inicio PM (Ingreso manual)", placeholder="Ej: 6:00 PM")
-                    agente = st.text_input("Agente", value=d.get("agente_escala", ""))
-                    pais = st.text_input("País", value=d.get("pais", ""))
-                    numeros = st.text_input("Números", value=d.get("numeros", ""))
-                    fraude_operacional = st.text_input("Fraude Operacional", value=d.get("fraude_operacional", ""))
-                    contactos = st.text_input("Contactos", value=d.get("contactos", ""))
-                    
-                    limite_pais = LIMITES_PAIS.get(d.get("pais", ""), 0)
-                    st.caption(f"Límite máximo para {d.get('pais', 'País')}: **${limite_pais}**")
+                    caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
+                    hora = st.text_input("HORA", value=d.get("hora", ""))
+                    fin_accion = st.text_input("FIN DE ACCION (Ingreso manual)", placeholder="Ej: 6:15 PM")
+                    caso = st.text_input("CASO", value=d.get("caso", ""))
+                    agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
                 
                 with col2:
-                    correo = st.text_input("Correo", value=d.get("correo", ""))
-                    order_id = st.text_input("Order ID", value=d.get("order_id", ""))
-                    user_id = st.text_input("User ID", value=d.get("user_id", ""))
-                    pedido_link = st.text_input("Link Pedido", value=d.get("pedido_link", ""))
-                    ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
-                    fin_accion = st.text_input("Fin de Acción (Ingreso manual)", placeholder="Ej: 6:15 PM")
-                    fraude_fintech = st.text_input("Fraude Fintech", value=d.get("fraude_fintech", ""))
-                    seguidores = st.text_input("Seguidores", value=d.get("seguidores", ""))
+                    correo = st.text_input("CORREO", value=d.get("correo", ""))
+                    pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
+                    order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
+                    pais = st.text_input("PAIS", value=d.get("pais", ""))
+                    seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
                 
-                problema = st.text_area("Problema Reportado (Resumido)", value=d.get("motivo_reclamo", ""), height=80)
+                problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
+                ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
                 
                 st.divider()
                 st.markdown("### Cálculos Financieros")
                 
-                # ATRAPAMOS LOS MONTOS QUE ENVÍA LA IA (Asegurándonos de que sean números)
-                monto_p_ia = float(d.get("monto_pedido", 0.0) if d.get("monto_pedido") else 0.0)
-                monto_d_ia = float(d.get("monto_devolucion", 0.0) if d.get("monto_devolucion") else 0.0)
-
+                # Montos
+                monto_pedido_ia = float(d.get("monto_pedido", 0.0) if d.get("monto_pedido") else 0.0)
+                monto_devolucion_ia = float(d.get("monto_devolucion", 0.0) if d.get("monto_devolucion") else 0.0)
+                
                 col3, col4 = st.columns(2)
                 
                 with col3:
-                    monto_pedido = st.number_input("Monto del Pedido ($)", min_value=0.0, value=monto_p_ia, step=10.0)
-                    devolucion = st.number_input("Monto de Devolución ($)", min_value=0.0, value=monto_d_ia, step=10.0)
+                    pedido = st.number_input("PEDIDO ($)", min_value=0.0, value=monto_pedido_ia, step=10.0)
+                    devolucion = st.number_input("DEVOLUCION ($)", min_value=0.0, value=monto_devolucion_ia, step=10.0)
+                
+                # Calcular límite basado en el país escrito
+                limite_pais = limites_dict.get(pais.strip(), 0)
+                
+                # Logica financiera:
+                # 1. Total (proyectado) = Pedido + Compensacion (que inicialmente es el pedido)
+                # 2. Si Total > Limite, la compensacion se reduce a Limite - Pedido
+                # 3. Si Pedido >= Limite, compensacion = 0
+                if pedido >= limite_pais and limite_pais > 0:
+                    compensacion = 0.0
+                else:
+                    compensacion_proyectada = pedido
+                    if (pedido + compensacion_proyectada) > limite_pais and limite_pais > 0:
+                        compensacion = limite_pais - pedido
+                    else:
+                        compensacion = compensacion_proyectada
+                        
+                total = pedido + compensacion
                 
                 with col4:
-                    compensacion = devolucion # SOP indica que es el 100%
-                    total = devolucion + compensacion
+                    st.metric(f"LIMITE: $", f"{limite_pais:.2f}")
+                    st.metric("COMPENSACION: $", f"{compensacion:.2f}")
                     
-                    st.metric("Compensación Automática (100%)", f"${compensacion:.2f}")
-                    st.metric("Total (Protocolo VIP)", f"${total:.2f}")
-                    
-                    if total > limite_pais and limite_pais > 0:
-                        st.error("⚠️ ALERTA: El total SUPERA el límite del país.")
-                    elif limite_pais > 0 and total > 0:
-                        st.success("✅ El total está dentro del límite permitido.")
+                    if limite_pais > 0:
+                        if pedido > limite_pais:
+                            st.error(f"TOTAL: ${total:.2f}, PASA EL LIMITE (El pedido por sí solo ya supera el límite)")
+                        elif total >= limite_pais:
+                            st.warning(f"TOTAL: ${total:.2f}, PASA EL LIMITE (Compensación ajustada automáticamente)")
+                        else:
+                            st.success(f"TOTAL: ${total:.2f}, NO PASA EL LIMITE")
+                    else:
+                        st.info(f"TOTAL: ${total:.2f} (País sin límite configurado)")
 
                 st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")

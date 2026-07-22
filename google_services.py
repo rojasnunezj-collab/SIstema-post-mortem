@@ -32,6 +32,51 @@ def get_credentials():
         st.error(f"Error al cargar credenciales de Google: {e}")
         return None
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_catalogo_ccr3():
+    """Descarga la lista de categorías CCR3 desde la hoja 1 del sheet de referencia."""
+    from config import CCR3_SHEET_ID
+    creds = get_credentials()
+    if not creds: return []
+    try:
+        client = gspread.authorize(creds)
+        # La hoja 1 es típicamente la primera
+        sheet = client.open_by_key(CCR3_SHEET_ID).worksheet("Hoja 1")
+        # Asumiendo que la lista está en la primera columna
+        valores = sheet.col_values(1)
+        # Filtramos vacíos y encabezados si los hay
+        lista = [v.strip() for v in valores if v.strip()]
+        return lista if lista else ["No se encontraron categorías"]
+    except Exception as e:
+        st.error(f"Error leyendo CCR3 de Sheet: {e}")
+        return []
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_limites_pais():
+    """Descarga el diccionario de límites por país desde la pestaña 'importes maximo pais'."""
+    creds = get_credentials()
+    if not creds: return {}
+    try:
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet("importes maximo pais")
+        # Obtiene todas las filas
+        filas = sheet.get_all_values()
+        limites = {}
+        # Asume Col A = Pais, Col B = Limite numérico
+        for fila in filas[1:]: # Saltar encabezado
+            if len(fila) >= 2 and fila[0].strip():
+                pais = fila[0].strip()
+                try:
+                    # Limpiar símbolo $ y convertir a float
+                    val_str = fila[1].replace("$", "").replace(",", "").strip()
+                    limites[pais] = float(val_str)
+                except:
+                    pass
+        return limites
+    except Exception as e:
+        st.error(f"Error leyendo Límites de Sheet: {e}")
+        return {}
+
 def registrar_en_sheet(datos, resolucion):
     """
     Registra el postmortem aprobado en el Google Sheet corporativo.
