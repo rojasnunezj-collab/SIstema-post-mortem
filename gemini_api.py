@@ -60,9 +60,7 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        modelo_nombre = next((m for m in modelos if 'flash' in m), modelos[0])
-        model = genai.GenerativeModel(modelo_nombre)
+        model = genai.GenerativeModel('gemini-3.0-flash')
     except Exception as e:
         st.error(f"❌ Error conectando con Gemini: {e}")
         return None
