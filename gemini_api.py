@@ -1,9 +1,9 @@
 # gemini_api.py
 import os
 import json
+import re
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 def extraer_datos_gemini(imagen_pil):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
@@ -12,7 +12,11 @@ def extraer_datos_gemini(imagen_pil):
         st.error("⚠️ No se encontró la API Key.")
         return None
         
-    client = genai.Client(api_key=api_key)
+    try:
+        genai.configure(api_key=api_key.strip())
+    except Exception as e:
+        st.error(f"❌ Error API: {e}")
+        return None
     
     prompt = """
     Eres un auditor experto de Operaciones Digitales. Analiza las capturas de pantalla de un caso de soporte y extrae los datos.
@@ -56,18 +60,20 @@ def extraer_datos_gemini(imagen_pil):
     """
     
     try:
-        response = client.models.generate_content(
-            model='gemini-3.0-flash',
-            contents=[prompt, imagen_pil],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1
-            )
-        )
-        st.toast(f"✅ ¡Datos extraídos con éxito!", icon="🚀")
-        
-        texto_limpio = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(texto_limpio)
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        modelo_nombre = next((m for m in modelos if 'flash' in m), modelos[0])
+        model = genai.GenerativeModel(modelo_nombre)
+    except Exception as e:
+        st.error(f"❌ Error conectando con Gemini: {e}")
+        return None
+
+    try:
+        response = model.generate_content([prompt, imagen_pil])
+        match = re.search(r'\{.*\}', response.text.replace("```json", "").replace("```", ""), re.DOTALL)
+        if match: 
+            st.toast(f"✅ ¡Datos extraídos con éxito!", icon="🚀")
+            return json.loads(match.group(0))
+        return None
         
     except Exception as e:
         st.error(f"❌ Error al procesar con IA: {e}")
