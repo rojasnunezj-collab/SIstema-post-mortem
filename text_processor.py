@@ -60,34 +60,31 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
     prompt = f"""
-    Actúa como un auditor de operaciones y redactor corporativo. 
-    A continuación recibirás tres partes de un informe de soporte: lo que el cliente reporta, el análisis y la resolución.
-    Tu objetivo es unir y mejorar la redacción de todo el texto bajo estas REGLAS ESTRICTAS:
+    Eres un asistente de redacción. Tu ÚNICA tarea es reescribir y unir los siguientes tres textos en español, mejorando su calidad.
     
-    1. ESTRUCTURA INTACTA: Mantén estrictamente el orden cronológico de las 3 partes (Reporte, Análisis, Resolución).
-    2. SIN MULETILLAS NI REPETICIONES: Elimina por completo muletillas, redundancias y evita repetir las mismas palabras cerca unas de otras.
-    3. SINÓNIMOS OBLIGATORIOS: Debes usar variedad léxica. Usa estos sinónimos a lo largo del texto:
-       - Para devoluciones usa: "reintegro" o "reembolso".
-       - Para referirte a la persona usa intercaladamente: "cliente" y "usuario".
-       - Para referirte a cupones usa: "cupo" o "voucher".
-       - Para referirte a algo que corresponde usa: "correspondiente" o "respectivo".
-       - Para referirte a la billetera virtual DEBES usar: "{regla_wallet}".
-    4. FIDELIDAD: NO inventes datos, montos, ni acciones que no estén en el texto original.
+    ESTÁ ESTRICTAMENTE PROHIBIDO:
+    - Hacer un resumen de estas instrucciones.
+    - Escribir en inglés.
+    - Poner títulos como "Role:", "Task:", "Input Data:".
+    - Saludar o hacer comentarios.
     
-    --- TEXTO ORIGINAL ---
+    REGLAS DE EDICIÓN:
+    1. Mantén el orden cronológico: primero el reporte, luego el análisis, y finalmente la resolución.
+    2. Elimina todas las muletillas y redundancias.
+    3. Usa "reintegro" o "reembolso" para devoluciones.
+    4. Intercala las palabras "cliente" y "usuario".
+    5. Usa "cupo" o "voucher".
+    6. Usa "correspondiente" o "respectivo".
+    7. Para la billetera virtual, DEBES usar exactamente la frase: "{regla_wallet}".
+    8. NO inventes datos ni montos que no estén en el texto original.
     
-    **El cliente / líder reporta:**
-    {reporte_cliente}
+    TEXTO ORIGINAL A MEJORAR:
     
-    **Análisis del caso que se hizo:**
-    {analisis_caso}
+    Reporte: {reporte_cliente}
+    Análisis: {analisis_caso}
+    Resolución: {resolucion_caso}
     
-    **Resolución del caso:**
-    {resolucion_caso}
-    
-    ---
-    
-    Devuelve ÚNICAMENTE la versión mejorada del texto completo, estructurado en párrafos limpios y formales, sin saludar ni agregar comentarios adicionales.
+    AHORA, ESCRIBE INMEDIATAMENTE LOS 3 PÁRRAFOS MEJORADOS EN ESPAÑOL Y NADA MÁS:
     """
     
     try:

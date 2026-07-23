@@ -208,7 +208,8 @@ def main():
                 if resolucion_limpia:
                     st.success("✅ Proceso completado con éxito. Aquí está el texto mejorado:")
                     st.markdown("### Borrador Final Mejorado")
-                    st.info(resolucion_limpia)
+                    # Mostrarlo como un campo de texto editable para el usuario
+                    st.text_area("Puedes editar el resultado final aquí antes de copiarlo:", value=resolucion_limpia, height=300)
                     
                     # Funcionalidad futura guardada para cuando se active la automatización a Sheets/Docs
                     # with st.spinner("Guardando en Google Sheets..."):
