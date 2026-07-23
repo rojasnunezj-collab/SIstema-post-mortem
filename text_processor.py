@@ -38,20 +38,19 @@ def procesar_seccion(texto, tipo, regla_wallet, modelo_seguro):
     if not texto.strip():
         return ""
         
-    prompt = f"""Reescribe el siguiente texto corporativo correspondiente a la sección de {tipo}.
+    prompt = f"""
+Por favor, reescribe el siguiente texto sobre el {tipo} de forma corporativa.
+Tu respuesta DEBE ser únicamente un (1) solo párrafo en español, sin viñetas, sin títulos, y sin análisis previo en inglés.
 
-REGLAS:
-- Sin muletillas ni redundancias.
-- Devoluciones = "reintegro" o "reembolso".
-- Intercala: "cliente" y "usuario".
-- Cupón = "cupo" o "voucher".
-- Billetera = "{regla_wallet}".
-- NO inventes datos.
+Aplica estas palabras clave de forma natural:
+- Usa "reintegro" o "reembolso" (no devolución).
+- Usa "cupo" o "voucher".
+- Llama a la billetera virtual: "{regla_wallet}".
+- Usa tanto la palabra "cliente" como "usuario".
+No inventes datos ni montos.
 
-[TEXTO ORIGINAL]
+Texto a reescribir:
 {texto}
-
-[TEXTO MEJORADO (SOLO EL PÁRRAFO FINAL, SIN COMENTARIOS, DIRECTO AL GRANO)]:
 """
     import time
     model = genai.GenerativeModel(modelo_seguro)
@@ -59,9 +58,15 @@ REGLAS:
         try:
             response = model.generate_content(
                 prompt,
-                generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=300)
+                generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=600)
             )
-            return response.text.replace("```markdown", "").replace("```", "").strip()
+            
+            # Limpieza exhaustiva en caso de que la IA deje viñetas o palabras en inglés
+            texto_final = response.text.replace("```markdown", "").replace("```", "").strip()
+            import re
+            texto_final = re.sub(r'^.*?(?:Output|Draft|Respuesta|Texto|Párrafo).*?:', '', texto_final, flags=re.IGNORECASE | re.DOTALL).strip()
+            
+            return texto_final
         except Exception as sub_e:
             if "500" in str(sub_e) or "429" in str(sub_e):
                 if intento < 2:
