@@ -36,27 +36,8 @@ def main():
                 datos = extraer_datos_gemini(imagenes_pil)
                 
                 if datos:
-                    # Intento de cálculo de tiempo si existe ultima_interaccion
-                    hora_inicio = datos.get("hora", "")
-                    ultima_int = datos.get("ultima_interaccion", "")
-                    if hora_inicio and ultima_int:
-                        try:
-                            from datetime import datetime
-                            formato = "%I:%M %p"
-                            h_ini_clean = hora_inicio.replace(".", "").strip().upper()
-                            t_inicio = datetime.strptime(h_ini_clean, formato)
-                            
-                            if "PM" in ultima_int.upper() or "AM" in ultima_int.upper():
-                                h_fin_clean = ultima_int.replace(".", "").strip().upper()
-                                t_fin = datetime.strptime(h_fin_clean, formato)
-                                diff = (t_fin - t_inicio).total_seconds() / 60
-                                if diff < 0: diff += 1440
-                                datos["fin_accion"] = f"{int(diff)} min"
-                            else:
-                                datos["fin_accion"] = f"{ultima_int} (Requiere revisar)"
-                        except Exception as e:
-                            datos["fin_accion"] = f"{hora_inicio} -> {ultima_int}"
-                    
+                    # Pasamos el tiempo deducido directamente al fin de acción
+                    datos["fin_accion"] = datos.get("ultima_interaccion", "")
                     st.session_state["datos_extraidos"] = datos
                     st.success("✅ ¡Datos extraídos con éxito!")
         
@@ -73,20 +54,28 @@ def main():
                 # Organizamos los campos en el orden exacto solicitado
                 col1, col2 = st.columns(2)
                 
+                es_influencer = d.get("seguidores", "no corresponde").lower() != "no corresponde"
+                
                 with col1:
                     caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
                     hora = st.text_input("HORA", value=d.get("hora", ""))
                     fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", ""))
                     caso = st.text_input("CASO", value=d.get("caso", ""))
                     agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
-                    red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
+                    if es_influencer:
+                        red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
+                    else:
+                        red_social = "no corresponde"
                 
                 with col2:
                     correo = st.text_input("CORREO", value=d.get("correo", ""))
                     pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
                     order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
                     pais = st.text_input("PAIS", value=d.get("pais", ""))
-                    seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
+                    if es_influencer:
+                        seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
+                    else:
+                        seguidores = "no corresponde"
                 
                 problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
                 ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))

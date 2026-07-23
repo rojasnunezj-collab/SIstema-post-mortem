@@ -47,11 +47,11 @@ def obtener_catalogo_ccr3():
             # Si no existe "Hoja 1" (por ejemplo si está en inglés como "Sheet1"), usamos la primera pestaña.
             sheet = doc.get_worksheet(0)
             
-        # Asumiendo que la lista está en la primera columna
-        valores = sheet.col_values(1)
-        # Filtramos vacíos y encabezados si los hay
-        lista = [v.strip() for v in valores if v.strip()]
-        return lista if lista else ["No se encontraron categorías"]
+        # Asumiendo que la lista está en la columna C (índice 3)
+        valores = sheet.col_values(3)
+        # Filtramos vacíos y encabezados si los hay (saltando la fila 1 si es encabezado)
+        lista = [v.strip() for v in valores[1:] if v.strip()]
+        return lista if lista else ["No se encontraron categorías en la columna C"]
     except Exception as e:
         st.error(f"Error leyendo CCR3 de Sheet (ID {CCR3_SHEET_ID}): {e}")
         return []

@@ -60,7 +60,7 @@ def extraer_datos_gemini(imagenes_pil):
     
     REGLAS ESTRICTAS DE EXTRACCIÓN:
     1. HORA: Extrae la hora exacta de inicio del caso (al lado de la palabra "WORKFLOW", ej. "7:21 PM").
-    2. ÚLTIMA INTERACCIÓN: Extrae la marca de tiempo del último mensaje visible en TODAS las imágenes (ej. "7:23 PM" o "hace 27 minutos" o "27 minutes ago").
+    2. ÚLTIMA INTERACCIÓN: Extrae la HORA EXACTA (formato HH:MM PM) del último mensaje de resolución visible en TODAS las imágenes. ¡DEBE SER UNA HORA ABSOLUTA! Si el último mensaje dice "hace 27 minutos", deduce matemáticamente la hora sumando minutos a la hora de inicio (ej. si inició a las 7:21 PM y tardó ~27 mins, pon "7:48 PM") o basándote en la hora del mensaje anterior. NUNCA devuelvas frases relativas como "hace 27 minutos".
     3. AGENTE: Extrae solo el nombre y apellido del agente que está arrobado (ejemplo, si dice @SM_Milena Arias_NDO, extrae "Milena Arias").
     4. CASO: Extrae el texto que está después de la frase "reclamo de un:".
     5. NÚMERO DE CASO: Extrae el número después de "DETALLE DEL CASO #" (si no hay, pon "-").
@@ -75,7 +75,7 @@ def extraer_datos_gemini(imagenes_pil):
     - {ccr3_texto}
     Si no estás seguro, elige la más parecida, pero NUNCA inventes una categoría fuera de esa lista.
     14. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
-    15. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
+    15. CAMPOS VACÍOS: Si un campo requerido (correo, país, order id, etc.) no está visible en NINGUNA de las imágenes, escribe la palabra "Revisar". EXCEPCIÓN: Para 'fraude_operacional', 'fraude_fintech' y 'contactos', si no están, déjalos completamente vacíos "".
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
     {{
