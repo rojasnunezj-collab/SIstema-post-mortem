@@ -102,8 +102,6 @@ def main():
                         st.warning("⚠️ No se pudo leer la cantidad numérica de seguidores. Revisa el campo SEGUIDORES.")
                 
                 st.divider()
-                st.markdown("### Cálculos Financieros")
-                
                 st.markdown("### Cálculo para Devolución")
                 
                 # Layout para cálculos

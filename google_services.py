@@ -82,14 +82,15 @@ def obtener_limites_pais():
         # Obtiene todas las filas
         filas = sheet.get_all_values()
         limites = {}
-        # Asume Col A = Pais, Col B = Limite numérico
+        # Asume Col A = Pais (0), Col C = Limite numérico (2)
         for fila in filas[1:]: # Saltar encabezado
-            if len(fila) >= 2 and fila[0].strip():
+            if len(fila) >= 3 and fila[0].strip():
                 pais = fila[0].strip()
                 try:
                     # Limpiar símbolo $ y convertir a float
-                    val_str = fila[1].replace("$", "").replace(",", "").strip()
-                    limites[pais] = float(val_str)
+                    val_str = fila[2].replace("$", "").replace(",", "").strip()
+                    if val_str:
+                        limites[pais] = float(val_str)
                 except:
                     pass
         return limites
