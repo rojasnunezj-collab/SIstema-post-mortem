@@ -82,7 +82,23 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
-        response = model.generate_content(prompt)
+        
+        # Sistema de reintentos para evadir errores 500 internos de Google
+        import time
+        response = None
+        for intento in range(3):
+            try:
+                response = model.generate_content(prompt)
+                break
+            except Exception as sub_e:
+                if "500" in str(sub_e) or "429" in str(sub_e):
+                    if intento < 2:
+                        time.sleep(2)
+                        continue
+                raise sub_e
+                
+        if not response:
+            raise Exception("No se pudo obtener respuesta tras múltiples reintentos.")
         
         texto_limpio = response.text.replace("*Interleaving check:*", "").replace("```markdown", "").replace("```", "").replace("<FINAL>", "").replace("</FINAL>", "").strip()
         
