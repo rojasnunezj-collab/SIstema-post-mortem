@@ -7,19 +7,9 @@ import google.generativeai as genai
 def obtener_modelo_valido(api_key):
     """Encuentra el mejor modelo disponible para esta API key."""
     genai.configure(api_key=api_key)
-    try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    except Exception:
-        return "models/gemini-1.5-flash"
-
-    # Priorizar flash
-    flash_models = [m for m in modelos if 'flash' in m.lower()]
-    if flash_models:
-        return flash_models[0]
-    elif modelos:
-        return modelos[0]
-        
-    return "models/gemini-1.5-flash"
+    
+    # Evitar modelos experimentales o descontinuados que retornan 404
+    return "gemini-1.5-flash"
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """

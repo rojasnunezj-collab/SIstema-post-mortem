@@ -9,19 +9,10 @@ import google.generativeai as genai
 def obtener_modelo_valido(api_key):
     """Encuentra el mejor modelo disponible para esta API key."""
     genai.configure(api_key=api_key)
-    try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    except Exception:
-        return "models/gemini-1.5-flash"
-
-    # Priorizar flash
-    flash_models = [m for m in modelos if 'flash' in m.lower()]
-    if flash_models:
-        return flash_models[0]
-    elif modelos:
-        return modelos[0]
-        
-    return "models/gemini-1.5-flash"
+    
+    # Para evitar errores 404 de modelos descontinuados que siguen apareciendo en list_models(),
+    # y para no gastar cuota probándolos, forzamos la versión más estable y recomendada (1.5).
+    return "gemini-1.5-flash"
 
 from google_services import obtener_catalogo_ccr3
 
