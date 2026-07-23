@@ -29,11 +29,34 @@ def main():
         st.divider()
         
         if st.button("Extraer Datos (Gemini AI)", type="primary"):
-            with st.spinner("Analizando la imagen..."):
-                imagen_principal = Image.open(uploaded_files[0])
-                datos = extraer_datos_gemini(imagen_principal)
+            with st.spinner("Analizando las imágenes..."):
+                imagenes_pil = [Image.open(f) for f in uploaded_files]
+                
+                from gemini_api import extraer_datos_gemini
+                datos = extraer_datos_gemini(imagenes_pil)
                 
                 if datos:
+                    # Intento de cálculo de tiempo si existe ultima_interaccion
+                    hora_inicio = datos.get("hora", "")
+                    ultima_int = datos.get("ultima_interaccion", "")
+                    if hora_inicio and ultima_int:
+                        try:
+                            from datetime import datetime
+                            formato = "%I:%M %p"
+                            h_ini_clean = hora_inicio.replace(".", "").strip().upper()
+                            t_inicio = datetime.strptime(h_ini_clean, formato)
+                            
+                            if "PM" in ultima_int.upper() or "AM" in ultima_int.upper():
+                                h_fin_clean = ultima_int.replace(".", "").strip().upper()
+                                t_fin = datetime.strptime(h_fin_clean, formato)
+                                diff = (t_fin - t_inicio).total_seconds() / 60
+                                if diff < 0: diff += 1440
+                                datos["fin_accion"] = f"{int(diff)} min"
+                            else:
+                                datos["fin_accion"] = f"{ultima_int} (Requiere revisar)"
+                        except Exception as e:
+                            datos["fin_accion"] = f"{hora_inicio} -> {ultima_int}"
+                    
                     st.session_state["datos_extraidos"] = datos
                     st.success("✅ ¡Datos extraídos con éxito!")
         
@@ -53,7 +76,7 @@ def main():
                 with col1:
                     caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
                     hora = st.text_input("HORA", value=d.get("hora", ""))
-                    fin_accion = st.text_input("FIN DE ACCION (Ingreso manual)", placeholder="Ej: 6:15 PM")
+                    fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", ""))
                     caso = st.text_input("CASO", value=d.get("caso", ""))
                     agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
                     red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))

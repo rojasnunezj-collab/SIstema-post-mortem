@@ -52,32 +52,35 @@ def extraer_datos_gemini(imagen_pil):
         
     # Obtener CCR3 dinámicamente
     ccr3_opciones = obtener_catalogo_ccr3()
-    ccr3_texto = "\n- ".join(ccr3_opciones[:50]) # Limitar a 50 si hay muchos para evitar sobrecarga de tokens
+    ccr3_texto = "\n    - ".join(ccr3_opciones)
     
     prompt = f"""
-    Eres un auditor experto de Operaciones Digitales. Analiza las capturas de pantalla de un caso de soporte y extrae los datos.
+    Eres un asistente experto en lectura de capturas de pantalla de operaciones de atención al cliente (postmortem).
+    Se te proporcionarán varias imágenes que corresponden a un mismo caso continuo. Debes analizarlas todas en conjunto.
     
     REGLAS ESTRICTAS DE EXTRACCIÓN:
-    1. HORA: Extrae la hora que está al lado de la palabra "WORKFLOW".
-    2. AGENTE: Extrae solo el nombre y apellido del agente que está arrobado (ejemplo, si dice @SM_Milena Arias_NDO, extrae "Milena Arias").
-    3. CASO: Extrae el texto que está después de la frase "reclamo de un:".
-    4. NÚMERO DE CASO: Extrae el número después de "DETALLE DEL CASO #" (si no hay, pon "-").
-    5. SEGUIDORES: Si el caso no dice "influencer", pon "no corresponde". Si sí, extrae el número (solo los dígitos, ej. de "50k" pon 50000).
-    6. RED SOCIAL: Si es influencer, identifica la red social (Instagram, TikTok, YouTube, Twitter, Facebook, etc.). Si no es, pon "no corresponde".
-    7. PAÍS: Extrae el texto al lado de "País:".
-    8. CORREO: Extrae el texto al lado de "Correo:".
-    9. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
-    10. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
-    11. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
-    12. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
+    1. HORA: Extrae la hora exacta de inicio del caso (al lado de la palabra "WORKFLOW", ej. "7:21 PM").
+    2. ÚLTIMA INTERACCIÓN: Extrae la marca de tiempo del último mensaje visible en TODAS las imágenes (ej. "7:23 PM" o "hace 27 minutos" o "27 minutes ago").
+    3. AGENTE: Extrae solo el nombre y apellido del agente que está arrobado (ejemplo, si dice @SM_Milena Arias_NDO, extrae "Milena Arias").
+    4. CASO: Extrae el texto que está después de la frase "reclamo de un:".
+    5. NÚMERO DE CASO: Extrae el número después de "DETALLE DEL CASO #" (si no hay, pon "-").
+    6. SEGUIDORES: Si el caso no dice "influencer", pon "no corresponde". Si sí, extrae el número (solo los dígitos, ej. de "50k" pon 50000).
+    7. RED SOCIAL: Si es influencer, identifica la red social (Instagram, TikTok, YouTube, Twitter, Facebook, etc.). Si no es, pon "no corresponde".
+    8. PAÍS: Extrae el texto al lado de "País:".
+    9. CORREO: Extrae el texto al lado de "Correo:".
+    10. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
+    11. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
+    12. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
+    13. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
     - {ccr3_texto}
     Si no estás seguro, elige la más parecida, pero NUNCA inventes una categoría fuera de esa lista.
-    13. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
-    14. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
+    14. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
+    15. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
     {{
-        "hora": "Hora visible en el mensaje",
+        "hora": "Hora visible en el mensaje inicial",
+        "ultima_interaccion": "Marca de tiempo del último mensaje",
         "agente_escala": "Nombre del agente",
         "caso": "Tipo de caso reportado",
         "numero_caso": "ID o número de caso",
@@ -101,7 +104,15 @@ def extraer_datos_gemini(imagen_pil):
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
-        response = model.generate_content([prompt, imagen_pil])
+        
+        # Enviamos el prompt seguido de TODAS las imágenes en la lista
+        contenido = [prompt]
+        if isinstance(imagenes_pil, list):
+            contenido.extend(imagenes_pil)
+        else:
+            contenido.append(imagenes_pil)
+            
+        response = model.generate_content(contenido)
         
         match = re.search(r'\{.*\}', response.text.replace("```json", "").replace("```", ""), re.DOTALL)
         if match: 
