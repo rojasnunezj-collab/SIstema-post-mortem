@@ -5,25 +5,21 @@ import google.generativeai as genai
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_modelo_valido(api_key):
-    """Encuentra y prueba el mejor modelo disponible para esta API key, y lo cachea por 1 hora."""
+    """Encuentra el mejor modelo disponible para esta API key."""
     genai.configure(api_key=api_key)
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     except Exception:
-        return None
+        return "models/gemini-1.5-flash"
 
+    # Priorizar flash
     flash_models = [m for m in modelos if 'flash' in m.lower()]
-    otros_models = [m for m in modelos if 'flash' not in m.lower()]
-    
-    for nombre_modelo in (flash_models + otros_models):
-        try:
-            model = genai.GenerativeModel(nombre_modelo)
-            if model.generate_content("Hola"):
-                return nombre_modelo
-        except Exception:
-            continue
-            
-    return None
+    if flash_models:
+        return flash_models[0]
+    elif modelos:
+        return modelos[0]
+        
+    return "models/gemini-1.5-flash"
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
