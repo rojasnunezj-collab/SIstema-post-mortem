@@ -59,8 +59,9 @@ def main():
                 if val_seguidores is None:
                     val_seguidores = "no corresponde"
                 
-                # Si el modelo devuelve 'revisar', asume que no es influencer por defecto
-                es_influencer = str(val_seguidores).strip().lower() not in ["no corresponde", "revisar", "null", "none", "", "-"]
+                # Solo es influencer si el campo seguidores contiene números (ej. "10k", "1000")
+                import re
+                es_influencer = bool(re.search(r'\d', str(val_seguidores)))
                 
                 with col1:
                     caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
