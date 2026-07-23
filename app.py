@@ -197,7 +197,8 @@ def main():
                 st.markdown("### Formularios Adicionales")
                 is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
                 
-                is_amenaza = str(d.get("amenaza", "")).strip().lower() in ["sí", "si", "true", "yes"]
+                caso_str = str(d.get("caso", "")).strip().lower()
+                is_amenaza = "amenaza" in caso_str or "denuncia" in caso_str
                 if is_amenaza:
                     st.info("⚠️ La IA detectó una Amenaza de Denuncia en las imágenes.")
 

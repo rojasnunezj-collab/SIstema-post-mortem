@@ -82,7 +82,6 @@ def extraer_datos_gemini(imagenes_pil):
     - {ccr3_texto}
     14. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
     15. CAMPOS VACÍOS: Si un campo requerido (correo, país, order id, etc.) no está visible en NINGUNA de las imágenes, escribe la palabra "Revisar". EXCEPCIÓN: Para 'fraude_operacional', 'fraude_fintech' y 'contactos', si no están, déjalos completamente vacíos "".
-    16. AMENAZA: Determina si en los mensajes del cliente hay alguna amenaza legal, de demanda judicial, abogados, Profeco o defensa del consumidor. Responde obligatoriamente con "Sí" o "No".
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
     {{
@@ -105,8 +104,7 @@ def extraer_datos_gemini(imagenes_pil):
         "fraude_fintech": "Indicador o texto de fraude fintech",
         "seguidores": "Cantidad de seguidores si aplica (número o 'no corresponde')",
         "red_social": "Nombre de la red social o 'no corresponde'",
-        "contactos": "Contactos mencionados si aplica",
-        "amenaza": "Sí o No"
+        "contactos": "Contactos mencionados si aplica"
     }}
     """
     
