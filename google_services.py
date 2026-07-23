@@ -34,21 +34,26 @@ def get_credentials():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_catalogo_ccr3():
-    """Descarga la lista de categorías CCR3 desde la hoja 1 del sheet de referencia."""
+    """Descarga la lista de categorías CCR3 desde la primera hoja del sheet de referencia."""
     from config import CCR3_SHEET_ID
     creds = get_credentials()
     if not creds: return []
     try:
         client = gspread.authorize(creds)
-        # La hoja 1 es típicamente la primera
-        sheet = client.open_by_key(CCR3_SHEET_ID).worksheet("Hoja 1")
+        doc = client.open_by_key(CCR3_SHEET_ID)
+        try:
+            sheet = doc.worksheet("Hoja 1")
+        except gspread.WorksheetNotFound:
+            # Si no existe "Hoja 1" (por ejemplo si está en inglés como "Sheet1"), usamos la primera pestaña.
+            sheet = doc.get_worksheet(0)
+            
         # Asumiendo que la lista está en la primera columna
         valores = sheet.col_values(1)
         # Filtramos vacíos y encabezados si los hay
         lista = [v.strip() for v in valores if v.strip()]
         return lista if lista else ["No se encontraron categorías"]
     except Exception as e:
-        st.error(f"Error leyendo CCR3 de Sheet: {e}")
+        st.error(f"Error leyendo CCR3 de Sheet (ID {CCR3_SHEET_ID}): {e}")
         return []
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -90,6 +95,39 @@ def obtener_limites_pais():
         return limites
     except Exception as e:
         st.error(f"Error leyendo Límites de Sheet: {e}")
+        return {}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_reglas_influencer():
+    """Descarga las reglas de seguidores mínimos para cada red social desde la pestaña 'reglas'."""
+    from config import INFLUENCER_SHEET_ID
+    creds = get_credentials()
+    if not creds: return {}
+    try:
+        client = gspread.authorize(creds)
+        doc = client.open_by_key(INFLUENCER_SHEET_ID)
+        try:
+            sheet = doc.worksheet("reglas")
+        except gspread.WorksheetNotFound:
+            # Fallback en caso de que esté mal escrita
+            sheet = doc.get_worksheet(0)
+            
+        filas = sheet.get_all_values()
+        reglas = {}
+        # Asume Col A = Red Social, Col B = Mínimo de Seguidores (ej. 10000)
+        for fila in filas[1:]: # Saltar encabezado
+            if len(fila) >= 2 and fila[0].strip():
+                red_social = fila[0].strip().lower()
+                try:
+                    # Limpiar comas o texto y convertir a entero
+                    val_str = ''.join(filter(str.isdigit, fila[1]))
+                    if val_str:
+                        reglas[red_social] = int(val_str)
+                except:
+                    pass
+        return reglas
+    except Exception as e:
+        st.error(f"Error leyendo reglas de Influencers (ID {INFLUENCER_SHEET_ID}): {e}")
         return {}
 
 def registrar_en_sheet(datos, resolucion):

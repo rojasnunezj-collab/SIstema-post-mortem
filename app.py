@@ -41,9 +41,10 @@ def main():
             st.subheader("Auditoría de Datos y Cálculos")
             d = st.session_state["datos_extraidos"]
             
-            # Obtener limites dinámicos
-            from google_services import obtener_limites_pais
+            # Obtener limites y reglas dinámicas
+            from google_services import obtener_limites_pais, obtener_reglas_influencer
             limites_dict = obtener_limites_pais()
+            reglas_influencer = obtener_reglas_influencer()
             
             with st.form("form_postmortem"):
                 # Organizamos los campos en el orden exacto solicitado
@@ -55,6 +56,7 @@ def main():
                     fin_accion = st.text_input("FIN DE ACCION (Ingreso manual)", placeholder="Ej: 6:15 PM")
                     caso = st.text_input("CASO", value=d.get("caso", ""))
                     agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
+                    red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
                 
                 with col2:
                     correo = st.text_input("CORREO", value=d.get("correo", ""))
@@ -65,6 +67,27 @@ def main():
                 
                 problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
                 ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
+                
+                # Validación de Influencer
+                val_seguidores = str(seguidores).strip().lower()
+                val_red = str(red_social).strip().lower()
+                
+                if val_seguidores and val_seguidores != "no corresponde" and val_red and val_red != "no corresponde":
+                    st.divider()
+                    st.markdown("### Validación de Influencer")
+                    try:
+                        cant_seguidores = int(''.join(filter(str.isdigit, val_seguidores)))
+                        minimo_req = reglas_influencer.get(val_red, None)
+                        
+                        if minimo_req is not None:
+                            if cant_seguidores >= minimo_req:
+                                st.success(f"🌟 CUMPLE REQUISITO: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario tiene {cant_seguidores}.")
+                            else:
+                                st.error(f"❌ NO CUMPLE: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario solo tiene {cant_seguidores}.")
+                        else:
+                            st.warning(f"⚠️ No se encontró la red social '{red_social}' en el catálogo de reglas (Opciones válidas: {', '.join(reglas_influencer.keys())}).")
+                    except ValueError:
+                        st.warning("⚠️ No se pudo leer la cantidad numérica de seguidores. Revisa el campo SEGUIDORES.")
                 
                 st.divider()
                 st.markdown("### Cálculos Financieros")

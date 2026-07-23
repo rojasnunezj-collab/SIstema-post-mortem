@@ -62,17 +62,18 @@ def extraer_datos_gemini(imagen_pil):
     2. AGENTE: Extrae solo el nombre y apellido del agente que está arrobado (ejemplo, si dice @SM_Milena Arias_NDO, extrae "Milena Arias").
     3. CASO: Extrae el texto que está después de la frase "reclamo de un:".
     4. NÚMERO DE CASO: Extrae el número después de "DETALLE DEL CASO #" (si no hay, pon "-").
-    5. SEGUIDORES: Si el caso no dice "influencer", pon "no corresponde". Si sí, extrae el número.
-    6. PAÍS: Extrae el texto al lado de "País:".
-    7. CORREO: Extrae el texto al lado de "Correo:".
-    8. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
-    9. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
-    10. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
-    11. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
+    5. SEGUIDORES: Si el caso no dice "influencer", pon "no corresponde". Si sí, extrae el número (solo los dígitos, ej. de "50k" pon 50000).
+    6. RED SOCIAL: Si es influencer, identifica la red social (Instagram, TikTok, YouTube, Twitter, Facebook, etc.). Si no es, pon "no corresponde".
+    7. PAÍS: Extrae el texto al lado de "País:".
+    8. CORREO: Extrae el texto al lado de "Correo:".
+    9. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
+    10. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
+    11. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
+    12. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
     - {ccr3_texto}
     Si no estás seguro, elige la más parecida, pero NUNCA inventes una categoría fuera de esa lista.
-    12. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
-    13. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
+    13. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
+    14. Para los demás datos (numeros, fraude, etc.) si no están visibles, déjalos en blanco "". No inventes.
     
     Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta de claves:
     {{
@@ -92,7 +93,8 @@ def extraer_datos_gemini(imagen_pil):
         "numeros": "Números de contacto o referencia si los hay",
         "fraude_operacional": "Indicador o texto de fraude operacional",
         "fraude_fintech": "Indicador o texto de fraude fintech",
-        "seguidores": "Cantidad de seguidores si aplica",
+        "seguidores": "Cantidad de seguidores si aplica (número o 'no corresponde')",
+        "red_social": "Nombre de la red social o 'no corresponde'",
         "contactos": "Contactos mencionados si aplica"
     }}
     """
