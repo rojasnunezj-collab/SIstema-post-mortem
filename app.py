@@ -65,12 +65,11 @@ def main():
                     if es_influencer:
                         red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
                     else:
-                        red_social = "no corresponde"
-                
-                with col2:
+                        red_social = "no corresponde"                with col2:
                     correo = st.text_input("CORREO", value=d.get("correo", ""))
                     pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
                     order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
+                    user_id = st.text_input("USER ID", value=d.get("user_id", "Colocar"))
                     pais = st.text_input("PAIS", value=d.get("pais", ""))
                     if es_influencer:
                         seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
@@ -93,7 +92,7 @@ def main():
                         
                         if minimo_req is not None:
                             if cant_seguidores >= minimo_req:
-                                st.success(f"🌟 CUMPLE REQUISITO: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario tiene {cant_seguidores}.")
+                                st.success(f"✅ CUMPLE REQUISITO: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario tiene {cant_seguidores}.")
                             else:
                                 st.error(f"❌ NO CUMPLE: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario solo tiene {cant_seguidores}.")
                         else:
@@ -157,7 +156,9 @@ def main():
 
                 st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
-                resolucion = st.text_area("Pega aquí tu borrador. La IA lo limpiará de muletillas en el siguiente paso.", height=150)
+                reporte_cliente = st.text_area("1. El cliente / líder reporta:", height=80, placeholder="Escribe aquí lo que reporta el cliente...")
+                analisis_caso = st.text_area("2. Análisis del caso que se hizo:", height=80, placeholder="Escribe aquí tu análisis del caso...")
+                resolucion_caso = st.text_area("3. Resolución del caso:", height=80, placeholder="Escribe aquí cómo se resolvió...")
                 
                 submit = st.form_submit_button("Aprobar Datos y Continuar", type="primary")
 
@@ -191,7 +192,10 @@ def main():
                 
                 with st.spinner("1/3 Mejorando redacción del borrador..."):
                     from text_processor import mejorar_redaccion
-                    resolucion_limpia = mejorar_redaccion(resolucion) if resolucion.strip() else "Sin resolución proporcionada."
+                    if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
+                        resolucion_limpia = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                    else:
+                        resolucion_limpia = "Sin resolución proporcionada."
                 
                 if resolucion_limpia:
                     st.info("Texto mejorado por IA:\n" + resolucion_limpia)
