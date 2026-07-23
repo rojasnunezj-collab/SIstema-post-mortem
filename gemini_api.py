@@ -7,12 +7,34 @@ import google.generativeai as genai
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_modelo_valido(api_key):
-    """Encuentra el mejor modelo disponible para esta API key."""
+    """Encuentra el mejor modelo disponible probando máximo 3 opciones para evitar el límite de cuota y evadir 404s."""
     genai.configure(api_key=api_key)
+    try:
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    except Exception:
+        modelos = ["models/gemini-1.5-flash", "models/gemini-pro"]
+
+    # Excluir modelos experimentales o descontinuados que causan 404 (ej. 2.5, 3.6)
+    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m]
     
-    # Para evitar errores 404 de modelos descontinuados que siguen apareciendo en list_models(),
-    # y para no gastar cuota probándolos, forzamos la versión más estable y recomendada (1.5).
-    return "gemini-1.5-flash"
+    flash = [m for m in modelos_seguros if 'flash' in m.lower()]
+    otros = [m for m in modelos_seguros if 'flash' not in m.lower()]
+    
+    # Solo probamos máximo 3 candidatos para NO agotar tu cuota de API por minuto
+    candidatos = (flash[:2] + otros[:1]) if flash else otros[:3]
+    
+    if not candidatos:
+        candidatos = ["models/gemini-pro"] # Fallback histórico indestructible
+        
+    for m in candidatos:
+        try:
+            model = genai.GenerativeModel(m)
+            if model.generate_content("a"): # Prueba súper ligera
+                return m
+        except Exception:
+            continue
+            
+    return candidatos[0]
 
 from google_services import obtener_catalogo_ccr3
 
