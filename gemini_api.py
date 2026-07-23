@@ -31,7 +31,7 @@ def obtener_modelo_valido(api_key):
 
 from google_services import obtener_catalogo_ccr3
 
-def extraer_datos_gemini(imagen_pil):
+def extraer_datos_gemini(imagenes_pil):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
