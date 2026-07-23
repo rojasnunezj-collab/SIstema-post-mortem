@@ -60,38 +60,40 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
     prompt = f"""
-    Eres un asistente de redacción. Tu ÚNICA tarea es reescribir y unir los siguientes tres textos en español, mejorando su calidad.
-    
-    ESTÁ ESTRICTAMENTE PROHIBIDO:
-    - Hacer un resumen de estas instrucciones.
-    - Mostrar validaciones internas o "checks" (ej. "Interleaving check").
-    - Escribir en inglés.
-    - Poner títulos como "Role:", "Task:", "Input Data:".
-    - Saludar o hacer comentarios.
+    Eres un corrector de estilo corporativo. Tu única tarea es reescribir y unir los tres textos en español.
     
     REGLAS DE EDICIÓN:
     1. Mantén el orden cronológico: primero el reporte, luego el análisis, y finalmente la resolución.
     2. Elimina todas las muletillas y redundancias.
     3. Usa "reintegro" o "reembolso" para devoluciones.
-    4. Intercala las palabras "cliente" y "usuario" (pero NO muestres cómo lo haces).
+    4. Intercala las palabras "cliente" y "usuario".
     5. Usa "cupo" o "voucher".
     6. Usa "correspondiente" o "respectivo".
     7. Para la billetera virtual, DEBES usar exactamente la frase: "{regla_wallet}".
-    8. NO inventes datos ni montos que no estén en el texto original.
+    8. NO inventes datos ni montos.
     
     TEXTO ORIGINAL A MEJORAR:
-    
     Reporte: {reporte_cliente}
     Análisis: {analisis_caso}
     Resolución: {resolucion_caso}
     
-    AHORA, ESCRIBE INMEDIATAMENTE LOS 3 PÁRRAFOS MEJORADOS EN ESPAÑOL Y NADA MÁS:
+    CRÍTICO: Devuelve los 3 párrafos mejorados EXCLUSIVAMENTE dentro de las etiquetas <FINAL> y </FINAL>.
     """
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
         response = model.generate_content(prompt)
-        return response.text
+        
+        # Extraer solo el contenido dentro de <FINAL> usando regex
+        import re
+        match = re.search(r'<FINAL>(.*?)</FINAL>', response.text, re.DOTALL | re.IGNORECASE)
+        if match:
+            texto = match.group(1).strip()
+            return texto
+        else:
+            # Fallback en caso de que la IA olvide la etiqueta
+            return response.text.replace("*Interleaving check:*", "").strip()
+            
     except Exception as e:
         st.error(f"❌ Error al mejorar la redacción con IA: {e}")
         return None
