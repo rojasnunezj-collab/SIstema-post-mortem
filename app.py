@@ -9,16 +9,46 @@ from gemini_api import extraer_datos_gemini
 st.set_page_config(page_title="Sistema Postmortem | Operaciones Digitales", page_icon="📋", layout="wide")
 
 def main():
+    from config import ADMIN_USERS
+    
+    user_email = st.session_state.get('user_email', '')
+    es_admin = user_email in ADMIN_USERS
+
     st.sidebar.title("Menú")
-    st.sidebar.write(f"👤 Usuario: {st.session_state.get('user_email', '')}")
+    st.sidebar.write(f"👤 Usuario: {user_email}")
     if st.sidebar.button("Cerrar Sesión"):
          st.session_state["logged_in"] = False
          st.rerun()
+         
+    if "uploader_key" not in st.session_state:
+        st.session_state.uploader_key = 0
+        
+    st.sidebar.divider()
+    if st.sidebar.button("🔄 Empezar Nuevo Caso (Limpiar Todo)"):
+        # Limpiar todas las variables de la sesión del caso actual
+        for key in list(st.session_state.keys()):
+            if key not in ["logged_in", "user_email", "uploader_key"]:
+                del st.session_state[key]
+        st.session_state.uploader_key += 1 # Resetea físicamente las imágenes subidas
+        st.rerun()
+
+    if es_admin:
+        st.sidebar.divider()
+        st.sidebar.subheader("🛠️ Panel de Administrador")
+        with st.sidebar.expander("Opciones de Admin", expanded=True):
+            if st.button("Purgar Caché Global"):
+                st.cache_data.clear()
+                st.success("Caché limpiada correctamente.")
+            
+            with st.spinner("Contando..."):
+                from google_services import obtener_cantidad_documentos
+                cant_docs = obtener_cantidad_documentos()
+                st.metric("Documentos Generados", cant_docs)
 
     st.title("Generador Automático de Postmortems")
     st.write("Sube las capturas del caso para extraer la información.")
 
-    uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
     if uploaded_files:
         cols = st.columns(len(uploaded_files))
@@ -216,9 +246,11 @@ def main():
                     st.text_area("3. Resolución (Editado):", value=res_limpia, height=150)
                     
                     # Funcionalidad guardada para cuando se active la automatización a Sheets
-                    # with st.spinner("Guardando en Google Sheets..."):
-                    #     from google_services import registrar_en_sheet
-                    #     exito_sheet = registrar_en_sheet(datos_finales, res_limpia)
+                    with st.spinner("Guardando en Google Sheets..."):
+                        from google_services import registrar_en_sheet
+                        exito_sheet = registrar_en_sheet(datos_finales, res_limpia)
+                        if exito_sheet:
+                            st.success("✅ Registro guardado en Google Sheets.")
                     
                     with st.spinner("Generando documento de Google Docs (Postmortem)..."):
                         from google_services import generar_documento_postmortem

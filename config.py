@@ -6,6 +6,11 @@ USUARIOS_AUTORIZADOS = [
     "compañero1@pedidosya.com"
 ]
 
+# Lista de administradores
+ADMIN_USERS = [
+    "rojasnunezj@gmail.com"
+]
+
 # Tabla de importes máximos por país equivalente a 50 EUR
 LIMITES_PAIS = {
     "Argentina": 83595, 

@@ -133,7 +133,7 @@ def obtener_reglas_influencer():
 
 def registrar_en_sheet(datos, resolucion):
     """
-    Registra el postmortem aprobado en el Google Sheet corporativo.
+    Registra el postmortem aprobado en la pestaña REGISTRO del Google Sheet corporativo.
     """
     creds = get_credentials()
     if not creds:
@@ -141,7 +141,16 @@ def registrar_en_sheet(datos, resolucion):
         
     try:
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+        doc = client.open_by_key(SPREADSHEET_ID)
+        try:
+            sheet = doc.worksheet("REGISTRO")
+        except gspread.WorksheetNotFound:
+            # Fallback (búsqueda difusa)
+            sheet = doc.worksheet(doc.worksheets()[0].title)
+            for w in doc.worksheets():
+                if "registro" in w.title.lower():
+                    sheet = w
+                    break
         
         # Preparamos la fila a insertar
         # Ajusta el orden según las columnas de tu hoja de cálculo
@@ -178,6 +187,31 @@ def registrar_en_sheet(datos, resolucion):
     except Exception as e:
         st.error(f"Error al registrar en Sheet: {e}")
         return False
+
+def obtener_cantidad_documentos():
+    """
+    Lee la cantidad de filas en la pestaña REGISTRO para calcular cuántos documentos se han hecho.
+    """
+    creds = get_credentials()
+    if not creds:
+        return 0
+        
+    try:
+        client = gspread.authorize(creds)
+        doc = client.open_by_key(SPREADSHEET_ID)
+        try:
+            sheet = doc.worksheet("REGISTRO")
+        except gspread.WorksheetNotFound:
+            for w in doc.worksheets():
+                if "registro" in w.title.lower():
+                    sheet = w
+                    break
+        
+        # Restamos 1 para descartar la fila del encabezado
+        filas = len(sheet.get_all_values())
+        return max(0, filas - 1)
+    except Exception:
+        return 0
 
 def get_oauth_credentials():
     """Obtiene las credenciales OAuth de usuario real desde Streamlit Secrets para evadir límites de cuota."""
@@ -229,7 +263,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
         variables = {
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
-            "{{CASO}}": datos.get("numero_caso", ""),
+            "{{CASO}}": datos.get("caso", ""),
             "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
             "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
             "{{ORDER_ID}}": datos.get("order_id", ""),

@@ -18,13 +18,25 @@ def main():
         return
         
     try:
-        # Esto abrirá tu navegador web
+        # Esto abrirá tu navegador web local
         flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        creds = flow.run_local_server(port=0)
+        # Forzamos el consentimiento para que Google nos devuelva sí o sí un 'refresh_token'
+        creds = flow.run_local_server(port=0, prompt='consent')
+        
+        # Leemos el credentials original para inyectar client_id y client_secret (por un bug de la librería)
+        with open('credentials.json', 'r') as f:
+            client_config = json.load(f)
+            client_type = list(client_config.keys())[0]
+            c_id = client_config[client_type]["client_id"]
+            c_secret = client_config[client_type]["client_secret"]
+            
+        token_dict = json.loads(creds.to_json())
+        token_dict["client_id"] = c_id
+        token_dict["client_secret"] = c_secret
         
         # Guardar el token extraído en token.json
         with open('token.json', 'w') as token_file:
-            token_file.write(creds.to_json())
+            json.dump(token_dict, token_file, indent=2)
             
         print("\n✅ ¡ÉXITO! Se ha generado el archivo 'token.json'.")
         
