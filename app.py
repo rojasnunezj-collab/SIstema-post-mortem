@@ -104,11 +104,12 @@ def main():
                 st.divider()
                 st.markdown("### Cálculo para Devolución")
                 
-                # Layout para cálculos
-                col3, col4, col5 = st.columns(3)
-                
-                monto_pedido = st.number_input("PEDIDO ($)", value=float(d.get("monto_pedido", 0.0)), step=1.0)
-                devolucion = st.number_input("DEVOLUCION ($)", value=float(d.get("monto_devolucion", 0.0)), step=1.0)
+                # Campos de entrada de montos
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    monto_pedido = st.number_input("PEDIDO ($)", value=float(d.get("monto_pedido", 0.0)), step=1.0)
+                with col_m2:
+                    devolucion = st.number_input("DEVOLUCION ($)", value=float(d.get("monto_devolucion", 0.0)), step=1.0)
                 
                 # Búsqueda robusta de límite por país (case-insensitive)
                 pais_lower = str(pais).strip().lower()
@@ -119,16 +120,13 @@ def main():
                         break
                 
                 # Lógica matemática de compensación y límite
-                # Compensación inicial = Pedido
                 comp_proyectada = monto_pedido
                 total_proyectado = monto_pedido + comp_proyectada
                 
                 if limite_pais > 0:
                     if monto_pedido > limite_pais:
-                        # Si el pedido en sí ya pasa el límite, la compensación es 0
                         compensacion = 0.0
                     elif total_proyectado > limite_pais:
-                        # Si la suma pasa, ajustamos la compensación para que cuadre con el límite
                         compensacion = limite_pais - monto_pedido
                     else:
                         compensacion = comp_proyectada
@@ -137,21 +135,25 @@ def main():
                 
                 total = monto_pedido + compensacion
                 
-                with col3:
-                    st.metric("LÍMITE DEL PAÍS: $", f"{limite_pais:.2f}")
-                with col4:
-                    st.metric("COMPENSACIÓN: $", f"{compensacion:.2f}")
+                st.write("") # Espaciador
                 
-                with col5:
-                    if limite_pais > 0:
-                        if monto_pedido > limite_pais:
-                            st.error(f"TOTAL: ${total:.2f} (PASA EL LÍMITE: El pedido por sí solo ya lo supera)")
-                        elif total >= limite_pais:
-                            st.warning(f"TOTAL: ${total:.2f} (PASA EL LÍMITE: Compensación ajustada)")
-                        else:
-                            st.success(f"TOTAL: ${total:.2f} (NO PASA EL LÍMITE)")
+                # Layout visual solicitado (Métricas lado a lado)
+                col_met1, col_met2, col_met3 = st.columns(3)
+                with col_met1:
+                    st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
+                with col_met2:
+                    st.metric("DEVOLUCIÓN", f"${devolucion:.2f}")
+                with col_met3:
+                    st.metric("COMPENSACIÓN FINAL", f"${compensacion:.2f}")
+                
+                # Semáforo de advertencia
+                if limite_pais > 0:
+                    if total >= limite_pais or monto_pedido > limite_pais:
+                        st.error(f"🔴 PASA EL LÍMITE (Total proyectado: ${total_proyectado:.2f} | Se ajustó compensación para límite de ${limite_pais:.2f})")
                     else:
-                        st.warning(f"TOTAL: ${total:.2f} (País sin límite configurado o país no reconocido)")
+                        st.success(f"🟢 NO PASA EL LÍMITE (Total: ${total:.2f})")
+                else:
+                    st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
 
                 st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
@@ -165,7 +167,6 @@ def main():
                     "numero_caso": caso_nro,
                     "caso": caso,
                     "hora": hora,
-                    "inicio_pm": inicio_pm,
                     "fin_accion": fin_accion,
                     "agente_escala": agente,
                     "pais": pais,
