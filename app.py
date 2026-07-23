@@ -65,7 +65,9 @@ def main():
                     if es_influencer:
                         red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
                     else:
-                        red_social = "no corresponde"                with col2:
+                        red_social = "no corresponde"
+                
+                with col2:
                     correo = st.text_input("CORREO", value=d.get("correo", ""))
                     pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
                     order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
