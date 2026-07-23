@@ -195,11 +195,11 @@ def main():
 
                 st.divider()
                 st.markdown("### Formularios Adicionales")
-                col_c1, col_c2 = st.columns(2)
-                with col_c1:
-                    is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
-                with col_c2:
-                    is_amenaza = st.checkbox("¿Hay amenaza de denuncia?", value=False)
+                is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
+                
+                is_amenaza = str(d.get("amenaza", "")).strip().lower() in ["sí", "si", "true", "yes"]
+                if is_amenaza:
+                    st.info("⚠️ La IA detectó una Amenaza de Denuncia en las imágenes.")
 
                 st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
