@@ -59,26 +59,24 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
         
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
-    prompt = f"""
-    Eres un corrector de estilo corporativo. Reescribe y une los siguientes 3 textos en español.
-    
-    REGLAS DE EDICIÓN:
-    1. Mantén el orden cronológico: primero el reporte, luego el análisis, y finalmente la resolución.
-    2. Elimina todas las muletillas y redundancias.
-    3. Usa "reintegro" o "reembolso" para devoluciones.
-    4. Intercala las palabras "cliente" y "usuario".
-    5. Usa "cupo" o "voucher".
-    6. Usa "correspondiente" o "respectivo".
-    7. Para la billetera virtual, DEBES usar exactamente la frase: "{regla_wallet}".
-    8. NO inventes datos ni montos.
-    
-    TEXTO ORIGINAL:
-    Reporte: {reporte_cliente}
-    Análisis: {analisis_caso}
-    Resolución: {resolucion_caso}
-    
-    INSTRUCCIÓN DE SISTEMA: Devuelve DIRECTAMENTE y ÚNICAMENTE los 3 párrafos finales en texto plano. SIN etiquetas, SIN formato markdown, SIN comprobaciones, y SIN comentarios previos. INICIA TU RESPUESTA DIRECTAMENTE CON LA PRIMERA PALABRA DEL REPORTE.
-    """
+    prompt = f"""Reescribe y une los 3 textos en español en 3 párrafos limpios.
+
+REGLAS:
+- Orden: Reporte, Análisis, Resolución.
+- Sin muletillas.
+- Devoluciones = "reintegro" o "reembolso".
+- Intercala: "cliente" y "usuario".
+- Cupón = "cupo" o "voucher".
+- Billetera = "{regla_wallet}".
+- NO inventes datos.
+
+[TEXTO ORIGINAL]
+Reporte: {reporte_cliente}
+Análisis: {analisis_caso}
+Resolución: {resolucion_caso}
+
+[TEXTO MEJORADO (SOLO LOS 3 PARRAFOS, SIN INTRODUCCIONES, DIRECTO AL GRANO)]:
+"""
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
@@ -88,7 +86,14 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
         response = None
         for intento in range(3):
             try:
-                response = model.generate_content(prompt)
+                # Usar configuración de generación para acelerar la IA (baja temperatura y límite de tokens)
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.1,
+                        max_output_tokens=800
+                    )
+                )
                 break
             except Exception as sub_e:
                 if "500" in str(sub_e) or "429" in str(sub_e):
