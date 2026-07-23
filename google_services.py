@@ -58,7 +58,22 @@ def obtener_limites_pais():
     if not creds: return {}
     try:
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet("importes maximo pais")
+        doc = client.open_by_key(SPREADSHEET_ID)
+        try:
+            sheet = doc.worksheet("importes maximo pais")
+        except gspread.WorksheetNotFound:
+            # Búsqueda difusa para lidiar con espacios, mayúsculas o tildes
+            nombres = [w.title for w in doc.worksheets()]
+            hoja_encontrada = None
+            for w in doc.worksheets():
+                if "importe" in w.title.lower() or "limite" in w.title.lower() or "maximo" in w.title.lower():
+                    hoja_encontrada = w
+                    break
+            if not hoja_encontrada:
+                st.error(f"Pestaña de límites no encontrada. Las pestañas reales son: {nombres}")
+                return {}
+            sheet = hoja_encontrada
+
         # Obtiene todas las filas
         filas = sheet.get_all_values()
         limites = {}
