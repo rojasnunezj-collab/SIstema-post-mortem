@@ -179,12 +179,27 @@ def registrar_en_sheet(datos, resolucion):
         st.error(f"Error al registrar en Sheet: {e}")
         return False
 
+def get_oauth_credentials():
+    """Obtiene las credenciales OAuth de usuario real desde Streamlit Secrets para evadir límites de cuota."""
+    from google.oauth2.credentials import Credentials
+    try:
+        token_info = st.secrets["gcp_oauth_token"]
+        if isinstance(token_info, str):
+            import json
+            token_info = json.loads(token_info)
+            
+        creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+        return creds
+    except Exception as e:
+        st.error(f"Error al cargar credenciales OAuth (Token): {e}")
+        return None
+
 def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
     """
     Clona la plantilla base de Docs y reemplaza las variables dinámicas.
     Retorna el enlace del documento generado.
     """
-    creds = get_credentials()
+    creds = get_oauth_credentials()
     if not creds:
         return None
         
