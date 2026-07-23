@@ -34,58 +34,9 @@ def obtener_modelo_valido(api_key):
             
     return candidatos[0]
 
-def procesar_seccion(texto, tipo, regla_wallet, modelo_seguro):
-    if not texto.strip():
-        return ""
-        
-    prompt = f"""
-Reescribe el siguiente texto sobre el {tipo} de forma corporativa.
-
-INSTRUCCIONES ESTRICTAS:
-- Tu respuesta debe ser ÚNICAMENTE el texto reescrito. NI UNA SOLA PALABRA MÁS. Cero comentarios, cero borradores en inglés, cero viñetas.
-- ESTÁ PROHIBIDO empezar el párrafo con "Tras revisar", "Al verificar" o "Tras realizar la revisión". Ve directo al grano (ej: "Se identificó...", "El usuario indicó...").
-- Usa "reintegro" o "reembolso".
-- Usa "cupo" o "voucher".
-- Llama a la billetera virtual: "{regla_wallet}".
-- Usa tanto "cliente" como "usuario".
-- NO inventes datos.
-
-EJEMPLO DE CÓMO DEBES RESPONDER:
-Texto a reescribir: "el usuario llamo por cobro doble y le hicimos el reintegro a su wallet y un cupon"
-Tu respuesta exacta: El cliente se comunicó debido a un cobro duplicado en su cuenta. Se procedió a realizar el reintegro correspondiente a su wallet o billetera y se le otorgó un cupo de compensación.
-
-AHORA HAZLO TÚ CON ESTE TEXTO:
-Texto a reescribir:
-{texto}
-
-Tu respuesta exacta:
-"""
-    import time
-    model = genai.GenerativeModel(modelo_seguro)
-    for intento in range(3):
-        try:
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=600)
-            )
-            
-            # Limpieza exhaustiva en caso de que la IA deje viñetas o palabras en inglés
-            texto_final = response.text.replace("```markdown", "").replace("```", "").strip()
-            import re
-            texto_final = re.sub(r'^.*?(?:Output|Draft|Respuesta|Texto|Párrafo).*?:', '', texto_final, flags=re.IGNORECASE | re.DOTALL).strip()
-            
-            return texto_final
-        except Exception as sub_e:
-            if "500" in str(sub_e) or "429" in str(sub_e):
-                if intento < 2:
-                    time.sleep(2)
-                    continue
-            return texto # Fallback al texto original si falla la API
-    return texto
-
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
-    Reescribe las 3 secciones usando multihilos para máxima velocidad y evitar alucinaciones.
+    Reescribe las 3 secciones utilizando una única llamada con JSON Schema forzado.
     Retorna una tupla de 3 strings: (reporte, analisis, resolucion).
     """
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
@@ -108,16 +59,53 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
         
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
-    import concurrent.futures
+    prompt = f"""
+Reescribe los siguientes textos de forma corporativa.
+
+INSTRUCCIONES ESTRICTAS:
+- Eres un formateador de texto final. Tu única función es devolver el texto en español, corregido y con tono corporativo. TIENES ESTRICTAMENTE PROHIBIDO explicar tus cambios, repetir las reglas, o incluir tu proceso de razonamiento. Devuelve ÚNICAMENTE el valor final para cada campo.
+- ESTÁ PROHIBIDO empezar el párrafo con "Tras revisar", "Al verificar" o "Tras realizar la revisión". Ve directo al grano (ej: "Se identificó...", "El usuario indicó...").
+- Usa "reintegro" o "reembolso".
+- Usa "cupo" o "voucher".
+- Llama a la billetera virtual: "{regla_wallet}".
+- Usa tanto "cliente" como "usuario".
+- NO inventes datos.
+
+TEXTOS A REESCRIBIR:
+[Reporte]: {reporte_cliente}
+[Análisis]: {analisis_caso}
+[Resolución]: {resolucion_caso}
+"""
     
-    # Ejecutamos las 3 llamadas a la IA en paralelo (Reduce el tiempo de 30s a 10s)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        f_rep = executor.submit(procesar_seccion, reporte_cliente, "Reporte del Cliente", regla_wallet, modelo_seguro)
-        f_ana = executor.submit(procesar_seccion, analisis_caso, "Análisis del Agente", regla_wallet, modelo_seguro)
-        f_res = executor.submit(procesar_seccion, resolucion_caso, "Resolución del Caso", regla_wallet, modelo_seguro)
+    import time
+    import typing_extensions as typing
+    import json
+    
+    class DraftResponse(typing.TypedDict):
+        reporte_editado: str
+        analisis_editado: str
+        resolucion_editado: str
         
-        rep = f_rep.result()
-        ana = f_ana.result()
-        res = f_res.result()
-        
-    return rep, ana, res
+    model = genai.GenerativeModel(modelo_seguro)
+    for intento in range(3):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1, 
+                    max_output_tokens=1000,
+                    response_mime_type="application/json",
+                    response_schema=DraftResponse
+                )
+            )
+            
+            datos = json.loads(response.text)
+            return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", "")
+        except Exception as sub_e:
+            if "500" in str(sub_e) or "429" in str(sub_e):
+                if intento < 2:
+                    time.sleep(2)
+                    continue
+            return reporte_cliente, analisis_caso, resolucion_caso # Fallback
+            
+    return reporte_cliente, analisis_caso, resolucion_caso
