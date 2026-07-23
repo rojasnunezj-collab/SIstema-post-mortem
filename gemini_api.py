@@ -109,14 +109,22 @@ def extraer_datos_gemini(imagenes_pil):
     """
     
     try:
+        from PIL import Image
         model = genai.GenerativeModel(modelo_seguro)
         
-        # Enviamos el prompt seguido de TODAS las imágenes en la lista
+        # Enviamos el prompt seguido de TODAS las imágenes en la lista (optimizadas)
         contenido = [prompt]
-        if isinstance(imagenes_pil, list):
-            contenido.extend(imagenes_pil)
-        else:
-            contenido.append(imagenes_pil)
+        if not isinstance(imagenes_pil, list):
+            imagenes_pil = [imagenes_pil]
+            
+        for img in imagenes_pil:
+            # Optimización de tamaño para acelerar el procesamiento de IA
+            max_size = 1200
+            if max(img.size) > max_size:
+                ratio = max_size / float(max(img.size))
+                new_size = (int(img.width * ratio), int(img.height * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            contenido.append(img)
             
         response = model.generate_content(contenido)
         
