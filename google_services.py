@@ -179,7 +179,7 @@ def registrar_en_sheet(datos, resolucion):
         st.error(f"Error al registrar en Sheet: {e}")
         return False
 
-def generar_documento_postmortem(datos, resolucion):
+def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
     """
     Clona la plantilla base de Docs y reemplaza las variables dinámicas.
     Retorna el enlace del documento generado.
@@ -192,9 +192,15 @@ def generar_documento_postmortem(datos, resolucion):
         drive_service = build('drive', 'v3', credentials=creds)
         docs_service = build('docs', 'v1', credentials=creds)
         
-        # 1. Copiar el documento plantilla
-        title = f"Postmortem - Caso {datos.get('numero_caso', 'S/N')} - {datos.get('pais', '')}"
-        body = {'name': title}
+        # 1. Copiar el documento plantilla a la carpeta destino
+        numero_caso = datos.get("numero_caso", "S_N")
+        title = f"Post mortem {numero_caso}"
+        folder_id = "16IaiuHgqtGu09T0MIC1TL9Zq0e-nsfAY"
+        
+        body = {
+            'name': title,
+            'parents': [folder_id]
+        }
         
         # Copia el archivo
         copied_file = drive_service.files().copy(
@@ -205,33 +211,20 @@ def generar_documento_postmortem(datos, resolucion):
         new_doc_id = copied_file.get('id')
         
         # 2. Preparar los reemplazos
-        # Asegúrate de que tu documento plantilla de Docs contenga estas variables escritas exactamente así:
-        # {{NUMERO_CASO}}, {{AGENTE}}, {{PAIS}}, etc.
         variables = {
-            "{{CASO_NUMERO}}": datos.get("numero_caso", ""),
-            "{{HORA}}": datos.get("hora", ""),
-            "{{FIN_ACCION}}": datos.get("fin_accion", ""),
-            "{{INICIO_PM}}": datos.get("inicio_pm", ""),
-            "{{CASO}}": datos.get("caso", ""),
-            "{{AGENTE}}": datos.get("agente_escala", ""),
-            "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CCR3}}": datos.get("ccr3", ""),
-            "{{CORREO}}": datos.get("correo", ""),
-            "{{LINK_PEDIDO}}": datos.get("pedido_link", ""),
+            "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
+            "{{CASO}}": datos.get("numero_caso", ""),
+            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
+            "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
             "{{ORDER_ID}}": datos.get("order_id", ""),
             "{{USER_ID}}": datos.get("user_id", ""),
-            "{{NUMERO}}": datos.get("numeros", ""),
-            "{{FRAUDE_OPERACIONAL}}": datos.get("fraude_operacional", ""),
-            "{{FRAUDE_FINTECH}}": datos.get("fraude_fintech", ""),
-            "{{PAIS}}": datos.get("pais", ""),
-            "{{SEGUIDORES}}": datos.get("seguidores", ""),
-            "{{CONTACTOS}}": datos.get("contactos", ""),
-            "{{LIMITE}}": f"${datos.get('limite', 0)}",
-            "{{PEDIDO}}": f"${datos.get('monto_pedido', 0)}",
-            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
-            "{{COMPENSACION}}": f"${datos.get('compensacion', 0)}",
-            "{{TOTAL}}": f"${datos.get('total', 0)}, {datos.get('evaluacion_limite', '')}",
-            "{{RESOLUCION}}": resolucion
+            "{{CORREO}}": datos.get("correo", ""),
+            "{{LINK_PEDIDO}}": datos.get("pedido_link", ""),
+            "{{AGENTE}}": datos.get("agente_escala", ""),
+            "{{REPORTE}}": rep_limpio,
+            "{{ANALISIS}}": ana_limpio,
+            "{{SOLUCION}}": res_limpia
         }
         
         requests = []
@@ -252,7 +245,7 @@ def generar_documento_postmortem(datos, resolucion):
             body={'requests': requests}
         ).execute()
         
-        # Compartir para que quien tenga el link pueda leer o editar (Opcional, pero recomendado si el bot lo crea)
+        # Compartir para que quien tenga el link pueda leer o editar
         drive_service.permissions().create(
              fileId=new_doc_id,
              body={'type': 'anyone', 'role': 'writer'}

@@ -214,15 +214,17 @@ def main():
                     st.text_area("2. Análisis (Editado):", value=ana_limpio, height=150)
                     st.text_area("3. Resolución (Editado):", value=res_limpia, height=150)
                     
-                    # Funcionalidad futura guardada para cuando se active la automatización a Sheets/Docs
+                    # Funcionalidad guardada para cuando se active la automatización a Sheets
                     # with st.spinner("Guardando en Google Sheets..."):
-                    #     from google_services import registrar_en_sheet, generar_documento_postmortem
-                    #     exito_sheet = registrar_en_sheet(datos_finales, resolucion_limpia)
-                    # if exito_sheet:
-                    #     with st.spinner("Generando Google Doc..."):
-                    #         doc_link = generar_documento_postmortem(datos_finales, resolucion_limpia)
-                    #     if doc_link:
-                    #         st.balloons()
+                    #     from google_services import registrar_en_sheet
+                    #     exito_sheet = registrar_en_sheet(datos_finales, res_limpia)
+                    
+                    with st.spinner("Generando documento de Google Docs (Postmortem)..."):
+                        from google_services import generar_documento_postmortem
+                        doc_link = generar_documento_postmortem(datos_finales, rep_limpio, ana_limpio, res_limpia)
+                        if doc_link:
+                            st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
+                            st.balloons()
 
 if __name__ == "__main__":
     if check_login():
