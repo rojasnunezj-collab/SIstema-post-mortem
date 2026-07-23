@@ -68,6 +68,8 @@ def main():
                     fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", ""))
                     caso = st.text_input("CASO", value=d.get("caso", ""))
                     agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
+                    numeros = st.text_input("NUMEROS", value=d.get("numeros", ""))
+                    fraude_operacional = st.text_input("FRAUDE OPERACIONAL", value=d.get("fraude_operacional", ""))
                     if es_influencer:
                         red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
                     else:
@@ -79,6 +81,8 @@ def main():
                     order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
                     user_id = st.text_input("USER ID", value=d.get("user_id", "Colocar"))
                     pais = st.text_input("PAIS", value=d.get("pais", ""))
+                    contactos = st.text_input("CONTACTOS", value=d.get("contactos", ""))
+                    fraude_fintech = st.text_input("FRAUDE FINTECH", value=d.get("fraude_fintech", ""))
                     if es_influencer:
                         seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
                     else:
