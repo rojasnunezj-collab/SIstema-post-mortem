@@ -64,6 +64,7 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     
     ESTÁ ESTRICTAMENTE PROHIBIDO:
     - Hacer un resumen de estas instrucciones.
+    - Mostrar validaciones internas o "checks" (ej. "Interleaving check").
     - Escribir en inglés.
     - Poner títulos como "Role:", "Task:", "Input Data:".
     - Saludar o hacer comentarios.
@@ -72,7 +73,7 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     1. Mantén el orden cronológico: primero el reporte, luego el análisis, y finalmente la resolución.
     2. Elimina todas las muletillas y redundancias.
     3. Usa "reintegro" o "reembolso" para devoluciones.
-    4. Intercala las palabras "cliente" y "usuario".
+    4. Intercala las palabras "cliente" y "usuario" (pero NO muestres cómo lo haces).
     5. Usa "cupo" o "voucher".
     6. Usa "correspondiente" o "respectivo".
     7. Para la billetera virtual, DEBES usar exactamente la frase: "{regla_wallet}".
