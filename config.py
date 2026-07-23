@@ -27,5 +27,5 @@ LIMITES_PAIS = {
 
 # Configuración de Google Workspace
 SPREADSHEET_ID = "1rpPka7dU3NvFxRpOtI-Muk6nqqqDguIMpn2Oq0yWWc4"
-CCR3_SHEET_ID = "1YYW7zneuiIJtcPRdRWjxXs2dQPaLvWaq"
+CCR3_SHEET_ID = "1xQgR9Cb0WRO4VRB2uN5hdHd-YqwK537LdhpkJfGXwRc"
 DOC_TEMPLATE_ID = "1jV2RtoyoQwBoE_xiz7MMzIj2iZDPAgde"
