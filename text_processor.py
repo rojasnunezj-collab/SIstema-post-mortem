@@ -60,7 +60,7 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
     prompt = f"""
-    Eres un corrector de estilo corporativo. Tu única tarea es reescribir y unir los tres textos en español.
+    Eres un corrector de estilo corporativo. Reescribe y une los siguientes 3 textos en español.
     
     REGLAS DE EDICIÓN:
     1. Mantén el orden cronológico: primero el reporte, luego el análisis, y finalmente la resolución.
@@ -72,27 +72,26 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     7. Para la billetera virtual, DEBES usar exactamente la frase: "{regla_wallet}".
     8. NO inventes datos ni montos.
     
-    TEXTO ORIGINAL A MEJORAR:
+    TEXTO ORIGINAL:
     Reporte: {reporte_cliente}
     Análisis: {analisis_caso}
     Resolución: {resolucion_caso}
     
-    CRÍTICO: Devuelve los 3 párrafos mejorados EXCLUSIVAMENTE dentro de las etiquetas <FINAL> y </FINAL>.
+    INSTRUCCIÓN DE SISTEMA: Devuelve DIRECTAMENTE y ÚNICAMENTE los 3 párrafos finales en texto plano. SIN etiquetas, SIN formato markdown, SIN comprobaciones, y SIN comentarios previos. INICIA TU RESPUESTA DIRECTAMENTE CON LA PRIMERA PALABRA DEL REPORTE.
     """
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
         response = model.generate_content(prompt)
         
-        # Extraer solo el contenido dentro de <FINAL> usando regex
+        texto_limpio = response.text.replace("*Interleaving check:*", "").replace("```markdown", "").replace("```", "").replace("<FINAL>", "").replace("</FINAL>", "").strip()
+        
+        # Eliminar cualquier pensamiento inicial que deje la IA por accidente antes del texto real
         import re
-        match = re.search(r'<FINAL>(.*?)</FINAL>', response.text, re.DOTALL | re.IGNORECASE)
-        if match:
-            texto = match.group(1).strip()
-            return texto
-        else:
-            # Fallback en caso de que la IA olvide la etiqueta
-            return response.text.replace("*Interleaving check:*", "").strip()
+        texto_limpio = re.sub(r'^(?:C\s*\(.*?\).*?Perfect\.?\s*)', '', texto_limpio, flags=re.IGNORECASE | re.DOTALL)
+        texto_limpio = re.sub(r'^.*?Interleaving.*?:\s*', '', texto_limpio, flags=re.IGNORECASE | re.DOTALL)
+        
+        return texto_limpio.strip()
             
     except Exception as e:
         st.error(f"❌ Error al mejorar la redacción con IA: {e}")
