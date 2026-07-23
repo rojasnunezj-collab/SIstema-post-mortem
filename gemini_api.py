@@ -118,8 +118,8 @@ def extraer_datos_gemini(imagenes_pil):
             imagenes_pil = [imagenes_pil]
             
         for img in imagenes_pil:
-            # Optimización de tamaño para acelerar el procesamiento de IA
-            max_size = 1200
+            # Optimización de tamaño extrema para acelerar el procesamiento de IA
+            max_size = 800
             if max(img.size) > max_size:
                 ratio = max_size / float(max(img.size))
                 new_size = (int(img.width * ratio), int(img.height * ratio))

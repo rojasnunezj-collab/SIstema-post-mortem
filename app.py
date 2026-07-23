@@ -54,11 +54,13 @@ def main():
                 # Organizamos los campos en el orden exacto solicitado
                 col1, col2 = st.columns(2)
                 
-                # Manejo seguro en caso de que Gemini devuelva null (None)
+                # Manejo seguro en caso de que Gemini devuelva null (None) o 'Revisar'
                 val_seguidores = d.get("seguidores", "no corresponde")
                 if val_seguidores is None:
                     val_seguidores = "no corresponde"
-                es_influencer = str(val_seguidores).lower() != "no corresponde"
+                
+                # Si el modelo devuelve 'revisar', asume que no es influencer por defecto
+                es_influencer = str(val_seguidores).strip().lower() not in ["no corresponde", "revisar", "null", "none", "", "-"]
                 
                 with col1:
                     caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
