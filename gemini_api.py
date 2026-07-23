@@ -128,10 +128,22 @@ def extraer_datos_gemini(imagenes_pil):
             
         response = model.generate_content(contenido)
         
-        match = re.search(r'\{.*\}', response.text.replace("```json", "").replace("```", ""), re.DOTALL)
-        if match: 
-            st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🚀")
-            return json.loads(match.group(0))
+        # Extractor robusto de JSON para evadir basura generada por la IA
+        raw_text = response.text.replace("```json", "").replace("```", "").strip()
+        start = raw_text.find('{')
+        
+        if start != -1:
+            raw_text = raw_text[start:]
+            end = raw_text.rfind('}')
+            while end != -1:
+                try:
+                    parsed_json = json.loads(raw_text[:end+1])
+                    st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🕵️‍♂️")
+                    return parsed_json
+                except json.JSONDecodeError:
+                    end = raw_text.rfind('}', 0, end)
+                    
+        st.error("❌ La IA no devolvió un formato válido.")
         return None
         
     except Exception as e:
