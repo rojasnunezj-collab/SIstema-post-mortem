@@ -39,18 +39,26 @@ def procesar_seccion(texto, tipo, regla_wallet, modelo_seguro):
         return ""
         
     prompt = f"""
-Por favor, reescribe el siguiente texto sobre el {tipo} de forma corporativa.
-Tu respuesta DEBE ser únicamente un (1) solo párrafo en español, sin viñetas, sin títulos, y sin análisis previo en inglés.
+Reescribe el siguiente texto sobre el {tipo} de forma corporativa.
 
-Aplica estas palabras clave de forma natural:
-- Usa "reintegro" o "reembolso" (no devolución).
+INSTRUCCIONES ESTRICTAS:
+- Tu respuesta debe ser ÚNICAMENTE el texto reescrito. NI UNA SOLA PALABRA MÁS. Cero comentarios, cero borradores en inglés, cero viñetas.
+- ESTÁ PROHIBIDO empezar el párrafo con "Tras revisar", "Al verificar" o "Tras realizar la revisión". Ve directo al grano (ej: "Se identificó...", "El usuario indicó...").
+- Usa "reintegro" o "reembolso".
 - Usa "cupo" o "voucher".
 - Llama a la billetera virtual: "{regla_wallet}".
-- Usa tanto la palabra "cliente" como "usuario".
-No inventes datos ni montos.
+- Usa tanto "cliente" como "usuario".
+- NO inventes datos.
 
+EJEMPLO DE CÓMO DEBES RESPONDER:
+Texto a reescribir: "el usuario llamo por cobro doble y le hicimos el reintegro a su wallet y un cupon"
+Tu respuesta exacta: El cliente se comunicó debido a un cobro duplicado en su cuenta. Se procedió a realizar el reintegro correspondiente a su wallet o billetera y se le otorgó un cupo de compensación.
+
+AHORA HAZLO TÚ CON ESTE TEXTO:
 Texto a reescribir:
 {texto}
+
+Tu respuesta exacta:
 """
     import time
     model = genai.GenerativeModel(modelo_seguro)
