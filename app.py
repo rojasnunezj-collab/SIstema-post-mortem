@@ -194,6 +194,14 @@ def main():
                     st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
 
                 st.divider()
+                st.markdown("### Formularios Adicionales")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
+                with col_c2:
+                    is_amenaza = st.checkbox("¿Hay amenaza de denuncia?", value=False)
+
+                st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
                 reporte_cliente = st.text_area("1. El cliente / líder reporta:", height=80, placeholder="Escribe aquí lo que reporta el cliente...")
                 analisis_caso = st.text_area("2. Análisis del caso que se hizo:", height=80, placeholder="Escribe aquí tu análisis del caso...")
@@ -258,6 +266,29 @@ def main():
                         if doc_link:
                             st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
                             st.balloons()
+                            
+                            # Generación de listas de formularios condicionales
+                            st.divider()
+                            st.subheader("📋 Datos para Formularios Internos (Solo Lectura)")
+                            
+                            st.markdown("**Gestión Diaria**")
+                            st.code(f"CASO#: {datos_finales['numero_caso']}\nCASO: {datos_finales['caso']}", language="text")
+                            
+                            # Lógica para Devolución (Influencer, Amenaza o Devolución activa)
+                            if es_influencer or is_amenaza or devolucion > 0:
+                                st.markdown("**Devolución**")
+                                st.code(f"USER ID: {datos_finales['user_id']}\nORDER ID: {datos_finales['order_id']}\nLINK: {datos_finales['pedido_link']}\nAGENTE: {datos_finales['agente_escala']}\nPAIS: {datos_finales['pais']}\nDEVOLUCION: {datos_finales['monto_devolucion']}\nCOMPENSACION FINAL: {datos_finales['compensacion']}", language="text")
+                            
+                            if is_fraude:
+                                st.markdown("**Fraude (WL)**")
+                                fraude_str = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
+                                if not fraude_str:
+                                    fraude_str = "Sí"
+                                st.code(f"CORREO: {datos_finales['correo']}\nUSER ID: {datos_finales['user_id']}\nORDER ID: {datos_finales['order_id']}\nPAIS: {datos_finales['pais']}\nFRAUDE: {fraude_str}", language="text")
+                                
+                            if is_amenaza:
+                                st.markdown("**Amenaza de Denuncia**")
+                                st.code(f"USER ID: {datos_finales['user_id']}\nCORREO: {datos_finales['correo']}\nPAIS: {datos_finales['pais']}", language="text")
 
 if __name__ == "__main__":
     if check_login():
