@@ -260,7 +260,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
         new_doc_id = copied_file.get('id')
         
         # 2. Preparar los reemplazos
+        from datetime import datetime
         variables = {
+            "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
