@@ -198,7 +198,7 @@ def main():
                     "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE"
                 }
                 
-                with st.spinner("1/3 Mejorando redacción del borrador..."):
+                with st.spinner("Mejorando redacción del borrador..."):
                     from text_processor import mejorar_redaccion
                     if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
                         resolucion_limpia = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
@@ -206,20 +206,19 @@ def main():
                         resolucion_limpia = "Sin resolución proporcionada."
                 
                 if resolucion_limpia:
-                    st.info("Texto mejorado por IA:\n" + resolucion_limpia)
-                    with st.spinner("2/3 Guardando en Google Sheets..."):
-                        from google_services import registrar_en_sheet, generar_documento_postmortem
-                        exito_sheet = registrar_en_sheet(datos_finales, resolucion_limpia)
-                        
-                    if exito_sheet:
-                        st.success("✅ Datos registrados en Google Sheets.")
-                        with st.spinner("3/3 Generando Google Doc..."):
-                            doc_link = generar_documento_postmortem(datos_finales, resolucion_limpia)
-                        
-                        if doc_link:
-                            st.success("✅ ¡Proceso completado con éxito!")
-                            st.markdown(f"📄 **Documento generado:** [Abrir Postmortem en Google Docs]({doc_link})")
-                            st.balloons()
+                    st.success("✅ Proceso completado con éxito. Aquí está el texto mejorado:")
+                    st.markdown("### Borrador Final Mejorado")
+                    st.info(resolucion_limpia)
+                    
+                    # Funcionalidad futura guardada para cuando se active la automatización a Sheets/Docs
+                    # with st.spinner("Guardando en Google Sheets..."):
+                    #     from google_services import registrar_en_sheet, generar_documento_postmortem
+                    #     exito_sheet = registrar_en_sheet(datos_finales, resolucion_limpia)
+                    # if exito_sheet:
+                    #     with st.spinner("Generando Google Doc..."):
+                    #         doc_link = generar_documento_postmortem(datos_finales, resolucion_limpia)
+                    #     if doc_link:
+                    #         st.balloons()
 
 if __name__ == "__main__":
     if check_login():

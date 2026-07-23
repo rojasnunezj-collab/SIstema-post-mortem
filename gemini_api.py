@@ -71,7 +71,7 @@ def extraer_datos_gemini(imagenes_pil):
     3. AGENTE: Extrae solo el nombre y apellido del agente que está arrobado (ejemplo, si dice @SM_Milena Arias_NDO, extrae "Milena Arias").
     4. CASO: Extrae el texto que está después de la frase "reclamo de un:".
     5. NÚMERO DE CASO: Extrae el número después de "DETALLE DEL CASO #" (si no hay, pon "-").
-    6. SEGUIDORES: Si el caso no dice "influencer", pon "no corresponde". Si sí, extrae el número (solo los dígitos, ej. de "50k" pon 50000).
+    6. SEGUIDORES: Si en las imágenes NO aparece explícitamente la palabra "influencer", estás OBLIGADO a poner exactamente la frase "no corresponde" (en minúsculas, sin comillas). NUNCA inventes números ni pongas "Revisar". Solo si dice explícitamente "influencer", extrae la cantidad.
     7. RED SOCIAL: Si es influencer, identifica la red social (Instagram, TikTok, YouTube, Twitter, Facebook, etc.). Si no es, pon "no corresponde".
     8. PAÍS: Extrae el texto al lado de "País:".
     9. CORREO: Extrae el texto al lado de "Correo:".
