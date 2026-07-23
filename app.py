@@ -198,18 +198,21 @@ def main():
                     "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE"
                 }
                 
-                with st.spinner("Mejorando redacción del borrador..."):
+                with st.spinner("Mejorando redacción del borrador (Multihilo)..."):
                     from text_processor import mejorar_redaccion
                     if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
-                        resolucion_limpia = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                        rep_limpio, ana_limpio, res_limpia = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
                     else:
-                        resolucion_limpia = "Sin resolución proporcionada."
+                        rep_limpio, ana_limpio, res_limpia = "", "", ""
                 
-                if resolucion_limpia:
+                if rep_limpio or ana_limpio or res_limpia:
                     st.success("✅ Proceso completado con éxito. Aquí está el texto mejorado:")
                     st.markdown("### Borrador Final Mejorado")
-                    # Mostrarlo como un campo de texto editable para el usuario
-                    st.text_area("Puedes editar el resultado final aquí antes de copiarlo:", value=resolucion_limpia, height=300)
+                    
+                    # Mostrarlo como 3 campos de texto editables separados para el usuario
+                    st.text_area("1. Reporte (Editado):", value=rep_limpio, height=150)
+                    st.text_area("2. Análisis (Editado):", value=ana_limpio, height=150)
+                    st.text_area("3. Resolución (Editado):", value=res_limpia, height=150)
                     
                     # Funcionalidad futura guardada para cuando se active la automatización a Sheets/Docs
                     # with st.spinner("Guardando en Google Sheets..."):

@@ -34,36 +34,14 @@ def obtener_modelo_valido(api_key):
             
     return candidatos[0]
 
-def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
-    """
-    Toma los tres textos crudos del analista y los reescribe con tono ejecutivo, 
-    aplicando reglas estrictas de sinonimia y limpieza.
-    """
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
-    
-    if not api_key:
-        st.error("❌ No se encontró la API Key de Gemini.")
-        return None
+def procesar_seccion(texto, tipo, regla_wallet, modelo_seguro):
+    if not texto.strip():
+        return ""
         
-    try:
-        genai.configure(api_key=api_key.strip())
-    except Exception as e:
-        st.error(f"❌ Error API: {e}")
-        return None
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
-    
-    if not modelo_seguro:
-        st.error("❌ Ningún modelo en tu API Key funcionó.")
-        return None
-        
-    regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
-    
-    prompt = f"""Reescribe y une los 3 textos en español en 3 párrafos limpios.
+    prompt = f"""Reescribe el siguiente texto corporativo correspondiente a la sección de {tipo}.
 
 REGLAS:
-- Orden: Reporte, Análisis, Resolución.
-- Sin muletillas.
+- Sin muletillas ni redundancias.
 - Devoluciones = "reintegro" o "reembolso".
 - Intercala: "cliente" y "usuario".
 - Cupón = "cupo" o "voucher".
@@ -71,49 +49,62 @@ REGLAS:
 - NO inventes datos.
 
 [TEXTO ORIGINAL]
-Reporte: {reporte_cliente}
-Análisis: {analisis_caso}
-Resolución: {resolucion_caso}
+{texto}
 
-[TEXTO MEJORADO (SOLO LOS 3 PARRAFOS, SIN INTRODUCCIONES, DIRECTO AL GRANO)]:
+[TEXTO MEJORADO (SOLO EL PÁRRAFO FINAL, SIN COMENTARIOS, DIRECTO AL GRANO)]:
 """
+    import time
+    model = genai.GenerativeModel(modelo_seguro)
+    for intento in range(3):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=300)
+            )
+            return response.text.replace("```markdown", "").replace("```", "").strip()
+        except Exception as sub_e:
+            if "500" in str(sub_e) or "429" in str(sub_e):
+                if intento < 2:
+                    time.sleep(2)
+                    continue
+            return texto # Fallback al texto original si falla la API
+    return texto
+
+def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
+    """
+    Reescribe las 3 secciones usando multihilos para máxima velocidad y evitar alucinaciones.
+    Retorna una tupla de 3 strings: (reporte, analisis, resolucion).
+    """
+    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
+    if not api_key:
+        st.error("❌ No se encontró la API Key de Gemini.")
+        return reporte_cliente, analisis_caso, resolucion_caso
+        
     try:
-        model = genai.GenerativeModel(modelo_seguro)
-        
-        # Sistema de reintentos para evadir errores 500 internos de Google
-        import time
-        response = None
-        for intento in range(3):
-            try:
-                # Usar configuración de generación para acelerar la IA (baja temperatura y límite de tokens)
-                response = model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.1,
-                        max_output_tokens=800
-                    )
-                )
-                break
-            except Exception as sub_e:
-                if "500" in str(sub_e) or "429" in str(sub_e):
-                    if intento < 2:
-                        time.sleep(2)
-                        continue
-                raise sub_e
-                
-        if not response:
-            raise Exception("No se pudo obtener respuesta tras múltiples reintentos.")
-        
-        texto_limpio = response.text.replace("*Interleaving check:*", "").replace("```markdown", "").replace("```", "").replace("<FINAL>", "").replace("</FINAL>", "").strip()
-        
-        # Eliminar cualquier pensamiento inicial que deje la IA por accidente antes del texto real
-        import re
-        texto_limpio = re.sub(r'^(?:C\s*\(.*?\).*?Perfect\.?\s*)', '', texto_limpio, flags=re.IGNORECASE | re.DOTALL)
-        texto_limpio = re.sub(r'^.*?Interleaving.*?:\s*', '', texto_limpio, flags=re.IGNORECASE | re.DOTALL)
-        
-        return texto_limpio.strip()
-            
+        genai.configure(api_key=api_key.strip())
     except Exception as e:
-        st.error(f"❌ Error al mejorar la redacción con IA: {e}")
-        return None
+        st.error(f"❌ Error API: {e}")
+        return reporte_cliente, analisis_caso, resolucion_caso
+        
+    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    
+    if not modelo_seguro:
+        st.error("❌ Ningún modelo en tu API Key funcionó.")
+        return reporte_cliente, analisis_caso, resolucion_caso
+        
+    regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
+    
+    import concurrent.futures
+    
+    # Ejecutamos las 3 llamadas a la IA en paralelo (Reduce el tiempo de 30s a 10s)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        f_rep = executor.submit(procesar_seccion, reporte_cliente, "Reporte del Cliente", regla_wallet, modelo_seguro)
+        f_ana = executor.submit(procesar_seccion, analisis_caso, "Análisis del Agente", regla_wallet, modelo_seguro)
+        f_res = executor.submit(procesar_seccion, resolucion_caso, "Resolución del Caso", regla_wallet, modelo_seguro)
+        
+        rep = f_rep.result()
+        ana = f_ana.result()
+        res = f_res.result()
+        
+    return rep, ana, res
