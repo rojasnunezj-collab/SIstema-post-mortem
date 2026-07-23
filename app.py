@@ -104,47 +104,56 @@ def main():
                 st.divider()
                 st.markdown("### Cálculos Financieros")
                 
-                # Montos
-                monto_pedido_ia = float(d.get("monto_pedido", 0.0) if d.get("monto_pedido") else 0.0)
-                monto_devolucion_ia = float(d.get("monto_devolucion", 0.0) if d.get("monto_devolucion") else 0.0)
+                st.markdown("### Cálculo para Devolución")
                 
-                col3, col4 = st.columns(2)
+                # Layout para cálculos
+                col3, col4, col5 = st.columns(3)
+                
+                monto_pedido = st.number_input("PEDIDO ($)", value=float(d.get("monto_pedido", 0.0)), step=1.0)
+                devolucion = st.number_input("DEVOLUCION ($)", value=float(d.get("monto_devolucion", 0.0)), step=1.0)
+                
+                # Búsqueda robusta de límite por país (case-insensitive)
+                pais_lower = str(pais).strip().lower()
+                limite_pais = 0.0
+                for p_name, p_lim in limites_dict.items():
+                    if p_name.strip().lower() == pais_lower:
+                        limite_pais = float(p_lim)
+                        break
+                
+                # Lógica matemática de compensación y límite
+                # Compensación inicial = Pedido
+                comp_proyectada = monto_pedido
+                total_proyectado = monto_pedido + comp_proyectada
+                
+                if limite_pais > 0:
+                    if monto_pedido > limite_pais:
+                        # Si el pedido en sí ya pasa el límite, la compensación es 0
+                        compensacion = 0.0
+                    elif total_proyectado > limite_pais:
+                        # Si la suma pasa, ajustamos la compensación para que cuadre con el límite
+                        compensacion = limite_pais - monto_pedido
+                    else:
+                        compensacion = comp_proyectada
+                else:
+                    compensacion = comp_proyectada
+                
+                total = monto_pedido + compensacion
                 
                 with col3:
-                    pedido = st.number_input("PEDIDO ($)", min_value=0.0, value=monto_pedido_ia, step=10.0)
-                    devolucion = st.number_input("DEVOLUCION ($)", min_value=0.0, value=monto_devolucion_ia, step=10.0)
-                
-                # Calcular límite basado en el país escrito
-                limite_pais = limites_dict.get(pais.strip(), 0)
-                
-                # Logica financiera:
-                # 1. Total (proyectado) = Pedido + Compensacion (que inicialmente es el pedido)
-                # 2. Si Total > Limite, la compensacion se reduce a Limite - Pedido
-                # 3. Si Pedido >= Limite, compensacion = 0
-                if pedido >= limite_pais and limite_pais > 0:
-                    compensacion = 0.0
-                else:
-                    compensacion_proyectada = pedido
-                    if (pedido + compensacion_proyectada) > limite_pais and limite_pais > 0:
-                        compensacion = limite_pais - pedido
-                    else:
-                        compensacion = compensacion_proyectada
-                        
-                total = pedido + compensacion
-                
+                    st.metric("LÍMITE DEL PAÍS: $", f"{limite_pais:.2f}")
                 with col4:
-                    st.metric(f"LIMITE: $", f"{limite_pais:.2f}")
-                    st.metric("COMPENSACION: $", f"{compensacion:.2f}")
-                    
+                    st.metric("COMPENSACIÓN: $", f"{compensacion:.2f}")
+                
+                with col5:
                     if limite_pais > 0:
-                        if pedido > limite_pais:
-                            st.error(f"TOTAL: ${total:.2f}, PASA EL LIMITE (El pedido por sí solo ya supera el límite)")
+                        if monto_pedido > limite_pais:
+                            st.error(f"TOTAL: ${total:.2f} (PASA EL LÍMITE: El pedido por sí solo ya lo supera)")
                         elif total >= limite_pais:
-                            st.warning(f"TOTAL: ${total:.2f}, PASA EL LIMITE (Compensación ajustada automáticamente)")
+                            st.warning(f"TOTAL: ${total:.2f} (PASA EL LÍMITE: Compensación ajustada)")
                         else:
-                            st.success(f"TOTAL: ${total:.2f}, NO PASA EL LIMITE")
+                            st.success(f"TOTAL: ${total:.2f} (NO PASA EL LÍMITE)")
                     else:
-                        st.info(f"TOTAL: ${total:.2f} (País sin límite configurado)")
+                        st.warning(f"TOTAL: ${total:.2f} (País sin límite configurado o país no reconocido)")
 
                 st.divider()
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")

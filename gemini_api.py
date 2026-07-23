@@ -71,9 +71,8 @@ def extraer_datos_gemini(imagenes_pil):
     10. LINK PEDIDO: Copia el link completo (si no hay pon "revisar").
     11. ORDER ID: Extrae el código que está en el link del pedido, justo después del último "/".
     12. MOTIVO DE RECLAMO: ¡MUY IMPORTANTE! NO copies el texto tal cual. Analiza el problema y redáctalo de forma resumida y profesional (máximo 3 líneas).
-    13. CCR3: Basado en tu resumen, DEBES elegir ÚNICAMENTE una categoría de esta lista exacta:
+    13. CCR3: Basado en tu resumen, DEBES elegir una categoría de esta lista exacta. REGLA CLAVE: Si se menciona "producto dañado" o "en mal estado", la opción debe ser referente a la "calidad de la comida". Si no estás seguro de una sola, puedes devolver un máximo de 3 opciones separadas por un guion o barra (ej. "Opción 1 / Opción 2 / Opción 3"). Lista de opciones:
     - {ccr3_texto}
-    Si no estás seguro, elige la más parecida, pero NUNCA inventes una categoría fuera de esa lista.
     14. MONTOS: Busca los valores numéricos de "Total", "Cobrado" o "Devoluciones" (ej. de $22.644 extrae 22644.0).
     15. CAMPOS VACÍOS: Si un campo requerido (correo, país, order id, etc.) no está visible en NINGUNA de las imágenes, escribe la palabra "Revisar". EXCEPCIÓN: Para 'fraude_operacional', 'fraude_fintech' y 'contactos', si no están, déjalos completamente vacíos "".
     
