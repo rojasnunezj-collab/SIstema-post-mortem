@@ -100,7 +100,9 @@ def obtener_limites_pais():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_reglas_influencer():
-    """Descarga las reglas de seguidores mínimos para cada red social desde la pestaña 'reglas'."""
+    """Descarga las reglas de seguidores mínimos para cada red social desde la pestaña 'reglas'.
+       Formato esperado de la hoja: Col A=Mercado, Col B=FB, Col C=Instagram, Col D=TW.
+    """
     from config import INFLUENCER_SHEET_ID
     creds = get_credentials()
     if not creds: return {}
@@ -115,17 +117,39 @@ def obtener_reglas_influencer():
             
         filas = sheet.get_all_values()
         reglas = {}
-        # Asume Col A = Red Social, Col B = Mínimo de Seguidores (ej. 10000)
+        
+        # Parseando formato de tabla 2D
+        # Asume Col A = Mercado, Col B = FB, Col C = Instagram, Col D = TW
         for fila in filas[1:]: # Saltar encabezado
-            if len(fila) >= 2 and fila[0].strip():
-                red_social = fila[0].strip().lower()
-                try:
-                    # Limpiar comas o texto y convertir a entero
-                    val_str = ''.join(filter(str.isdigit, fila[1]))
-                    if val_str:
-                        reglas[red_social] = int(val_str)
-                except:
-                    pass
+            if len(fila) >= 4 and fila[0].strip():
+                pais = fila[0].strip().lower()
+                reglas[pais] = {}
+                
+                # Helper para limpiar sufijos como 'k' o 'K' y comas
+                def parse_k(val_str):
+                    val_str = val_str.lower().replace(",", ".").strip()
+                    if not val_str: return None
+                    multiplier = 1
+                    if "k" in val_str:
+                        multiplier = 1000
+                        val_str = val_str.replace("k", "")
+                    try:
+                        # Extraer solo números y puntos
+                        cleaned = ''.join(c for c in val_str if c.isdigit() or c == '.')
+                        if cleaned:
+                            return int(float(cleaned) * multiplier)
+                        return None
+                    except:
+                        return None
+
+                fb_limit = parse_k(fila[1])
+                ig_limit = parse_k(fila[2])
+                tw_limit = parse_k(fila[3])
+                
+                if fb_limit: reglas[pais]["fb"] = fb_limit
+                if ig_limit: reglas[pais]["instagram"] = ig_limit
+                if tw_limit: reglas[pais]["tw"] = tw_limit
+                
         return reglas
     except Exception as e:
         st.error(f"Error leyendo reglas de Influencers (ID {INFLUENCER_SHEET_ID}): {e}")
@@ -275,7 +299,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
             "{{AGENTE}}": datos.get("agente_escala", ""),
             "{{REPORTE}}": rep_limpio,
             "{{ANALISIS}}": ana_limpio,
-            "{{SOLUCION}}": res_limpia
+            "{{SOLUCION}}": res_limpia,
+            "{{CLIENTE_FRAUDE}}": datos.get("fraude_str", ""),
+            "{{NUMERO}}": datos.get("telefono", "")
         }
         
         requests = []

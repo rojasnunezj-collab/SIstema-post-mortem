@@ -126,14 +126,24 @@ def main():
                 st.markdown("### Validación de Influencer")
                 try:
                     cant_seguidores = int(''.join(filter(str.isdigit, val_seguidores_str)))
-                    minimo_req = reglas_influencer.get(val_red, None)
+                    
+                    # Mapear red social a abreviaturas de la tabla (fb, instagram, tw)
+                    if "face" in val_red or "fb" in val_red: red_mapped = "fb"
+                    elif "insta" in val_red or "ig" in val_red: red_mapped = "instagram"
+                    elif "tw" in val_red or "x" in val_red: red_mapped = "tw"
+                    else: red_mapped = val_red
+                    
+                    pais_lower = str(pais).strip().lower()
+                    reglas_pais = reglas_influencer.get(pais_lower, {})
+                    minimo_req = reglas_pais.get(red_mapped, None)
+                    
                     if minimo_req is not None:
                         if cant_seguidores >= minimo_req:
-                            st.success(f"✅ CUMPLE REQUISITO: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario tiene {cant_seguidores}.")
+                            st.success(f"✅ CUMPLE REQUISITO: Para {pais_lower.title()}, la red {red_mapped.upper()} requiere mínimo {minimo_req} seguidores. El usuario tiene {cant_seguidores}.")
                         else:
-                            st.error(f"❌ NO CUMPLE: La red social {red_social} requiere mínimo {minimo_req} seguidores. El usuario solo tiene {cant_seguidores}.")
+                            st.error(f"❌ NO CUMPLE: Para {pais_lower.title()}, la red {red_mapped.upper()} requiere mínimo {minimo_req} seguidores. El usuario solo tiene {cant_seguidores}.")
                     else:
-                        st.warning(f"⚠️ No se encontró la red social '{red_social}' en el catálogo de reglas (Opciones válidas: {', '.join(reglas_influencer.keys())}).")
+                        st.warning(f"⚠️ No se encontraron reglas para el país '{pais}' o la red '{red_mapped}'. Verifica el Sheet de reglas.")
                 except ValueError:
                     st.warning("⚠️ No se pudo leer la cantidad numérica de seguidores. Revisa el campo SEGUIDORES.")
             
@@ -269,29 +279,37 @@ def main():
                 res_final = st.text_area("3. Resolución (Editado):", value=res_limpia, height=150)
                 
                 if st.button("Aprobar y Generar Documento", type="primary"):
-                    # Registro siempre (incluso si está vacío)
-                    with st.spinner("Guardando en Google Sheets..."):
-                        from google_services import registrar_en_sheet
-                        exito_sheet = registrar_en_sheet(dfin, res_final)
-                        if exito_sheet:
-                            st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
-                    
-                    with st.spinner("Generando documento de Google Docs..."):
-                        from google_services import generar_documento_postmortem
-                        doc_link = generar_documento_postmortem(dfin, rep_final, ana_final, res_final)
-                        if doc_link:
-                            st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
-                            st.balloons()
-                            mostrar_listas(dfin)
+                    if not st.session_state.get("doc_generado_flag"):
+                        with st.spinner("Guardando en Google Sheets..."):
+                            from google_services import registrar_en_sheet
+                            exito_sheet = registrar_en_sheet(dfin, res_final)
+                            if exito_sheet:
+                                st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
+                        
+                        with st.spinner("Generando documento de Google Docs..."):
+                            from google_services import generar_documento_postmortem
+                            doc_link = generar_documento_postmortem(dfin, rep_final, ana_final, res_final)
+                            if doc_link:
+                                st.session_state["doc_generado_flag"] = True
+                                st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
+                                st.balloons()
+                                mostrar_listas(dfin)
+                    else:
+                        st.success("✅ Este documento ya fue generado y registrado exitosamente en esta sesión.")
+                        mostrar_listas(dfin)
             else:
                 st.subheader("Generación de Listas Internas")
-                with st.spinner("Guardando registro básico en Google Sheets..."):
-                    from google_services import registrar_en_sheet
-                    exito_sheet = registrar_en_sheet(dfin, "SOLO ACCIONAR")
-                    if exito_sheet:
-                        st.success("✅ Registro guardado en Google Sheets.")
-                st.success("📄 ¡Datos guardados! Revisa las listas abajo.")
-                st.balloons()
+                if not st.session_state.get("accionar_generado_flag"):
+                    with st.spinner("Guardando registro básico en Google Sheets..."):
+                        from google_services import registrar_en_sheet
+                        exito_sheet = registrar_en_sheet(dfin, "SOLO ACCIONAR")
+                        if exito_sheet:
+                            st.session_state["accionar_generado_flag"] = True
+                            st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
+                    st.success("📄 ¡Datos guardados! Revisa las listas abajo.")
+                    st.balloons()
+                else:
+                    st.success("✅ Registro guardado exitosamente. Revisa las listas abajo.")
                 mostrar_listas(dfin)
 
 def mostrar_listas(dfin):
