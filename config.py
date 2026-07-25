@@ -4,6 +4,7 @@
 USUARIOS_AUTORIZADOS = [
     "rojasnunezj@gmail.com",
     "ruizdoradomaryuriyanira@gmail.com"
+    "echevarrianatalia31@gmail.com"
 ]
 
 # Lista de administradores
