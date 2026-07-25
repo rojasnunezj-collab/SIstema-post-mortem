@@ -3,7 +3,7 @@
 # Lista de correos con acceso al sistema
 USUARIOS_AUTORIZADOS = [
     "rojasnunezj@gmail.com",
-    "compañero1@pedidosya.com"
+    "ruizdoradomaryuriyanira@gmail.com"
 ]
 
 # Lista de administradores
