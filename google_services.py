@@ -180,9 +180,9 @@ def registrar_en_sheet(datos, resolucion):
                     break
         
         # Preparamos la fila a insertar
-        # Obtener fecha en hora local de Lima
-        import pytz
-        lima_tz = pytz.timezone("America/Lima")
+        # Obtener fecha en hora local de Lima usando built-in timezone
+        from datetime import timezone, timedelta
+        lima_tz = timezone(timedelta(hours=-5))
         fecha_lima = datetime.now(lima_tz).strftime("%Y-%m-%d %H:%M:%S")
         
         fila = [

@@ -113,7 +113,10 @@ def main():
                     seguidores = "no corresponde"
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
-            fraude = st.text_input("FRAUDE (Recomendación: 'cliente fraude', 'fraude confirmado', 'cliente no fraude')", value=fraude_init)
+            # Si el valor inicial no está en las opciones, dejamos el predeterminado
+            opciones_fraude = ["", "cliente fraude", "fraude confirmado", "cliente no fraude"]
+            idx_fraude = opciones_fraude.index(fraude_init) if fraude_init in opciones_fraude else 0
+            fraude = st.selectbox("FRAUDE", options=opciones_fraude, index=idx_fraude)
             
             problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
             ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
@@ -143,7 +146,8 @@ def main():
                         else:
                             st.error(f"❌ NO CUMPLE: Para {pais_lower.title()}, la red {red_mapped.upper()} requiere mínimo {minimo_req} seguidores. El usuario solo tiene {cant_seguidores}.")
                     else:
-                        st.warning(f"⚠️ No se encontraron reglas para el país '{pais}' o la red '{red_mapped}'. Verifica el Sheet de reglas.")
+                        st.warning(f"⚠️ No se encontraron reglas para el país '{pais_lower}' o la red '{red_mapped}'.")
+                        st.info(f"DEBUG INTERNO - Paises en el sheet: {list(reglas_influencer.keys())}")
                 except ValueError:
                     st.warning("⚠️ No se pudo leer la cantidad numérica de seguidores. Revisa el campo SEGUIDORES.")
             
@@ -309,7 +313,6 @@ def main():
                             st.session_state["accionar_generado_flag"] = True
                             st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
                     st.success("📄 ¡Datos guardados! Revisa las listas abajo.")
-                    st.balloons()
                 else:
                     st.success("✅ Registro guardado exitosamente. Revisa las listas abajo.")
                 mostrar_listas(dfin)
