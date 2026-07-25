@@ -121,33 +121,49 @@ def obtener_reglas_influencer_v2():
         filas = sheet.get_all_values()
         reglas = {}
         
+        # 1. Encontrar la cabecera dinámicamente
+        mercado_idx, fb_idx, ig_idx, tw_idx = -1, -1, -1, -1
+        start_row = 1
+        
+        for i, fila in enumerate(filas):
+            fila_lower = [str(c).strip().lower() for c in fila]
+            if "mercado" in fila_lower:
+                mercado_idx = fila_lower.index("mercado")
+                if "fb" in fila_lower: fb_idx = fila_lower.index("fb")
+                if "instagram" in fila_lower: ig_idx = fila_lower.index("instagram")
+                if "tw" in fila_lower: tw_idx = fila_lower.index("tw")
+                start_row = i + 1
+                break
+                
+        if mercado_idx == -1:
+            # Fallback rígido asumiendo formato A, B, C, D
+            mercado_idx, fb_idx, ig_idx, tw_idx = 0, 1, 2, 3
+        
+        # Helper para limpiar sufijos como 'k' o 'K' y comas
+        def parse_k(val_str):
+            val_str = val_str.lower().replace(",", ".").strip()
+            if not val_str: return None
+            multiplier = 1
+            if "k" in val_str:
+                multiplier = 1000
+                val_str = val_str.replace("k", "")
+            try:
+                cleaned = ''.join(c for c in val_str if c.isdigit() or c == '.')
+                if cleaned:
+                    return int(float(cleaned) * multiplier)
+                return None
+            except:
+                return None
+
         # Parseando formato de tabla 2D
-        # Asume Col A = Mercado, Col B = FB, Col C = Instagram, Col D = TW
-        for fila in filas[1:]: # Saltar encabezado
-            if len(fila) >= 4 and fila[0].strip():
-                pais = fila[0].strip().lower()
+        for fila in filas[start_row:]:
+            if len(fila) > max(mercado_idx, fb_idx, ig_idx, tw_idx) and str(fila[mercado_idx]).strip():
+                pais = str(fila[mercado_idx]).strip().lower()
                 reglas[pais] = {}
                 
-                # Helper para limpiar sufijos como 'k' o 'K' y comas
-                def parse_k(val_str):
-                    val_str = val_str.lower().replace(",", ".").strip()
-                    if not val_str: return None
-                    multiplier = 1
-                    if "k" in val_str:
-                        multiplier = 1000
-                        val_str = val_str.replace("k", "")
-                    try:
-                        # Extraer solo números y puntos
-                        cleaned = ''.join(c for c in val_str if c.isdigit() or c == '.')
-                        if cleaned:
-                            return int(float(cleaned) * multiplier)
-                        return None
-                    except:
-                        return None
-
-                fb_limit = parse_k(fila[1])
-                ig_limit = parse_k(fila[2])
-                tw_limit = parse_k(fila[3])
+                fb_limit = parse_k(str(fila[fb_idx])) if fb_idx != -1 else None
+                ig_limit = parse_k(str(fila[ig_idx])) if ig_idx != -1 else None
+                tw_limit = parse_k(str(fila[tw_idx])) if tw_idx != -1 else None
                 
                 if fb_limit: reglas[pais]["fb"] = fb_limit
                 if ig_limit: reglas[pais]["instagram"] = ig_limit
@@ -157,6 +173,41 @@ def obtener_reglas_influencer_v2():
     except Exception as e:
         st.error(f"Error leyendo reglas de Influencers (ID {INFLUENCER_SHEET_ID}): {e}")
         return {}
+        
+@st.cache_data(ttl=60, show_spinner=False)
+def obtener_metricas_registro():
+    """Obtiene la cantidad de documentos y acciones contando la columna de resolución."""
+    try:
+        from config import SPREADSHEET_ID
+        creds = get_credentials()
+        client = gspread.authorize(creds)
+        doc = client.open_by_key(SPREADSHEET_ID)
+        sheet = doc.worksheet("REGISTRO")
+        
+        # Columna Y (índice 25) es la resolución. O podemos traer todas y contar.
+        # get_all_values() es seguro si no es gigante.
+        filas = sheet.get_all_values()
+        
+        docs_count = 0
+        acciones_count = 0
+        
+        # Saltar encabezado
+        for fila in filas[1:]:
+            # Validar que la fila no esté completamente vacía
+            if not "".join(fila).strip():
+                continue
+                
+            # La columna 25 (índice 24) tiene la resolución ("SOLO ACCIONAR" u otro texto)
+            resolucion = fila[24] if len(fila) > 24 else ""
+            if "SOLO ACCIONAR" in str(resolucion).upper():
+                acciones_count += 1
+            else:
+                # Si tiene número de caso u hora en col 1/2, es un doc legítimo
+                docs_count += 1
+                
+        return docs_count, acciones_count
+    except Exception as e:
+        return 0, 0
 
 def registrar_en_sheet(datos, resolucion):
     """

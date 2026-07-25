@@ -32,18 +32,33 @@ def main():
         st.session_state.uploader_key += 1 # Resetea físicamente las imágenes subidas
         st.rerun()
 
-    if es_admin:
-        st.sidebar.divider()
-        st.sidebar.subheader("🛠️ Panel de Administrador")
-        with st.sidebar.expander("Opciones de Admin", expanded=True):
-            if st.button("Purgar Caché Global"):
-                st.cache_data.clear()
-                st.success("Caché limpiada correctamente.")
+    with st.sidebar:
+        st.markdown("## 📊 Métricas de Operación")
+        try:
+            with st.spinner("Cargando métricas..."):
+                from google_services import obtener_metricas_registro
+                docs, acciones = obtener_metricas_registro()
+                c1, c2 = st.columns(2)
+                c1.metric("Documentos", docs)
+                c2.metric("Acciones", acciones)
+        except Exception as e:
+            st.warning("No se pudo cargar el contador.")
             
-            with st.spinner("Contando..."):
-                from google_services import obtener_cantidad_documentos
-                cant_docs = obtener_cantidad_documentos()
-                st.metric("Documentos Generados", cant_docs)
+        # Panel de Administrador
+        from config import ADMIN_USERS
+        if st.session_state.get("user_email") in ADMIN_USERS:
+            st.divider()
+            st.markdown("### 🛠️ Panel de Administrador")
+            if st.button("♻️ Purgar Caché del Sistema", help="Limpia la memoria temporal de las tablas de Google Sheets y fuerza una recarga de datos frescos."):
+                st.cache_data.clear()
+                st.cache_resource.clear()
+                st.success("Caché purgado correctamente.")
+                
+            if st.button("🧹 Limpiar Sesión Actual", help="Reinicia todos los formularios y borra imágenes de la memoria actual para empezar un caso nuevo."):
+                email_save = st.session_state.get("user_email")
+                st.session_state.clear()
+                if email_save: st.session_state["user_email"] = email_save
+                st.rerun()
 
     st.title("Generador Automático de Postmortems")
     st.write("Sube las capturas del caso para extraer la información.")
