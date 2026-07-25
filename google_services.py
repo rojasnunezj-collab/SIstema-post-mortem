@@ -109,11 +109,14 @@ def obtener_reglas_influencer():
     try:
         client = gspread.authorize(creds)
         doc = client.open_by_key(INFLUENCER_SHEET_ID)
-        try:
-            sheet = doc.worksheet("reglas")
-        except gspread.WorksheetNotFound:
-            # Fallback en caso de que esté mal escrita
-            sheet = doc.get_worksheet(0)
+        
+        # Búsqueda case-insensitive de la pestaña "Reglas"
+        hoja = None
+        for w in doc.worksheets():
+            if w.title.strip().lower() == "reglas":
+                hoja = w
+                break
+        sheet = hoja or doc.get_worksheet(0)
             
         filas = sheet.get_all_values()
         reglas = {}
@@ -177,7 +180,6 @@ def registrar_en_sheet(datos, resolucion):
                     break
         
         # Preparamos la fila a insertar
-        # Ajusta el orden según las columnas de tu hoja de cálculo
         fila = [
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             datos.get("numero_caso", ""),
@@ -192,9 +194,9 @@ def registrar_en_sheet(datos, resolucion):
             datos.get("pedido_link", ""),
             datos.get("order_id", ""),
             datos.get("user_id", ""),
-            datos.get("numeros", ""),
-            datos.get("fraude_operacional", ""),
-            datos.get("fraude_fintech", ""),
+            datos.get("telefono", ""),  # Antes "numeros"
+            datos.get("fraude_str", ""), # Antes "fraude_operacional"
+            "",                          # Antes "fraude_fintech", ahora combinado en str
             datos.get("pais", ""),
             datos.get("seguidores", ""),
             datos.get("contactos", ""),
@@ -206,7 +208,9 @@ def registrar_en_sheet(datos, resolucion):
             resolucion
         ]
         
-        sheet.append_row(fila)
+        # table_range="A1" obliga a buscar el final de la tabla real de datos e ignora el formato de celdas vacías.
+        # value_input_option='USER_ENTERED' permite que los números sean tratados como números reales en el sheet.
+        sheet.append_row(fila, table_range="A1", value_input_option='USER_ENTERED')
         return True
     except Exception as e:
         st.error(f"Error al registrar en Sheet: {e}")
