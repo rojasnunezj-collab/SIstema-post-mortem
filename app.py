@@ -81,34 +81,39 @@ def main():
             reglas_influencer = obtener_reglas_influencer()
             
             st.markdown("### Datos Extraídos")
-            # 1. 1 Columna y nuevos campos
-            caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
-            hora = st.text_input("HORA", value=d.get("hora", ""))
-            fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", ""))
-            caso = st.text_input("CASO", value=d.get("caso", ""))
-            agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
+            col1, col2 = st.columns(2)
             
-            val_seguidores = d.get("seguidores", "no corresponde")
-            if val_seguidores is None: val_seguidores = "no corresponde"
-            import re
-            es_influencer = bool(re.search(r'\d', str(val_seguidores)))
-            
-            if es_influencer:
-                red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
-                seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
-            else:
-                red_social = "no corresponde"
-                seguidores = "no corresponde"
+            with col1:
+                caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
+                hora = st.text_input("HORA", value=d.get("hora", ""))
+                fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", "Revisar"))
+                caso = st.text_input("CASO", value=d.get("caso", ""))
+                agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
                 
-            correo = st.text_input("CORREO", value=d.get("correo", ""))
-            pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
-            order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
-            user_id = st.text_input("USER ID", value=d.get("user_id", "Colocar"))
-            pais = st.text_input("PAIS", value=d.get("pais", ""))
-            telefono = st.text_input("TELEFONO", value=d.get("telefono", ""))
+                val_seguidores = d.get("seguidores", "no corresponde")
+                if val_seguidores is None: val_seguidores = "no corresponde"
+                import re
+                es_influencer = bool(re.search(r'\d', str(val_seguidores)))
+                
+                if es_influencer:
+                    red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
+                else:
+                    red_social = "no corresponde"
+
+            with col2:
+                correo = st.text_input("CORREO", value=d.get("correo", ""))
+                pedido_link = st.text_input("LINK PEDIDO", value=d.get("pedido_link", ""))
+                order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
+                user_id = st.text_input("USER ID", value=d.get("user_id", "Revisar"))
+                pais = st.text_input("PAIS", value=d.get("pais", ""))
+                telefono = st.text_input("TELEFONO", value=d.get("telefono", "Revisar"))
+                if es_influencer:
+                    seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
+                else:
+                    seguidores = "no corresponde"
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
-            fraude = st.text_input("FRAUDE (Recomendación: 'cliente fraude', 'fraude confirmado', 'cliente no fraude', 'paso 4')", value=fraude_init)
+            fraude = st.text_input("FRAUDE (Recomendación: 'cliente fraude', 'fraude confirmado', 'cliente no fraude')", value=fraude_init)
             
             problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
             ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
@@ -169,9 +174,9 @@ def main():
             total = subtotal_1 + compensacion
             
             col_met1, col_met2, col_met3 = st.columns(3)
-            with col_met1: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
-            with col_met2: st.metric("SUBTOTAL 1 (Dev + Propina)", f"${subtotal_1:.2f}")
-            with col_met3: st.metric("COMPENSACIÓN FINAL", f"${compensacion:.2f}")
+            with col_met1: st.metric("Devo + Propina", f"${subtotal_1:.2f}")
+            with col_met2: st.metric("COMPENSACIÓN FINAL", f"${compensacion:.2f}")
+            with col_met3: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
             
             if limite_pais > 0:
                 if total >= limite_pais or subtotal_1 > limite_pais:
@@ -269,7 +274,7 @@ def main():
                         from google_services import registrar_en_sheet
                         exito_sheet = registrar_en_sheet(dfin, res_final)
                         if exito_sheet:
-                            st.success("✅ Registro guardado en Google Sheets.")
+                            st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
                     
                     with st.spinner("Generando documento de Google Docs..."):
                         from google_services import generar_documento_postmortem
@@ -291,24 +296,68 @@ def main():
 
 def mostrar_listas(dfin):
     st.divider()
-    st.subheader("📋 Datos para Formularios Internos (Solo Lectura)")
+    st.subheader("📋 Datos para Formularios Internos")
     
-    st.markdown("**Gestión Diaria**")
-    st.code(f"CASO#: {dfin['numero_caso']}\nCASO: {dfin['caso']}", language="text")
+    st.markdown("### Gestión Diaria")
+    c1, c2 = st.columns(2)
+    c1.markdown("**CASO#**")
+    c1.code(dfin['numero_caso'], language="text")
+    c2.markdown("**CASO**")
+    c2.code(dfin['caso'], language="text")
     
     if dfin['es_influencer'] or dfin['is_amenaza'] or dfin['monto_devolucion'] > 0:
-        st.markdown("**Devolución**")
-        st.code(f"USER ID: {dfin['user_id']}\nORDER ID: {dfin['order_id']}\nLINK: {dfin['pedido_link']}\nAGENTE: {dfin['agente_escala']}\nPAIS: {dfin['pais']}\nDEVOLUCION: {dfin['monto_devolucion']}\nPROPINA: {dfin['propina']}\nCOMPENSACION FINAL: {dfin['compensacion']}", language="text")
+        st.divider()
+        st.markdown("### Devolución")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown("**USER ID**")
+        c1.code(dfin['user_id'], language="text")
+        c2.markdown("**ORDER ID**")
+        c2.code(dfin['order_id'], language="text")
+        c3.markdown("**PAIS**")
+        c3.code(dfin['pais'], language="text")
+        c4.markdown("**AGENTE**")
+        c4.code(dfin['agente_escala'], language="text")
+        
+        c5, c6, c7 = st.columns(3)
+        c5.markdown("**DEVOLUCION**")
+        c5.code(dfin['monto_devolucion'], language="text")
+        c6.markdown("**PROPINA**")
+        c6.code(dfin['propina'], language="text")
+        c7.markdown("**COMPENSACION FINAL**")
+        c7.code(dfin['compensacion'], language="text")
+        
+        st.markdown("**LINK**")
+        st.code(dfin['pedido_link'], language="text")
     
     if dfin['is_fraude']:
-        st.markdown("**Fraude (WL)**")
+        st.divider()
+        st.markdown("### Fraude (WL)")
         fraude_val = dfin['fraude_str']
         if not fraude_val: fraude_val = "Sí"
-        st.code(f"CORREO: {dfin['correo']}\nUSER ID: {dfin['user_id']}\nORDER ID: {dfin['order_id']}\nPAIS: {dfin['pais']}\nFRAUDE: {fraude_val}", language="text")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown("**CORREO**")
+        c1.code(dfin['correo'], language="text")
+        c2.markdown("**USER ID**")
+        c2.code(dfin['user_id'], language="text")
+        c3.markdown("**ORDER ID**")
+        c3.code(dfin['order_id'], language="text")
+        c4.markdown("**PAIS**")
+        c4.code(dfin['pais'], language="text")
+        
+        st.markdown("**FRAUDE**")
+        st.code(fraude_val, language="text")
         
     if dfin['is_amenaza']:
-        st.markdown("**Amenaza de Denuncia**")
-        st.code(f"USER ID: {dfin['user_id']}\nCORREO: {dfin['correo']}\nPAIS: {dfin['pais']}", language="text")
+        st.divider()
+        st.markdown("### Amenaza de Denuncia")
+        c1, c2, c3 = st.columns(3)
+        c1.markdown("**USER ID**")
+        c1.code(dfin['user_id'], language="text")
+        c2.markdown("**CORREO**")
+        c2.code(dfin['correo'], language="text")
+        c3.markdown("**PAIS**")
+        c3.code(dfin['pais'], language="text")
 
 if __name__ == "__main__":
     if check_login():
