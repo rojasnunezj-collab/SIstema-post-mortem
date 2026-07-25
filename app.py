@@ -76,9 +76,9 @@ def main():
             d = st.session_state["datos_extraidos"]
             
             # Obtener limites y reglas dinámicas
-            from google_services import obtener_limites_pais, obtener_reglas_influencer
+            from google_services import obtener_limites_pais, obtener_reglas_influencer_v2
             limites_dict = obtener_limites_pais()
-            reglas_influencer = obtener_reglas_influencer()
+            reglas_influencer = obtener_reglas_influencer_v2()
             
             st.markdown("### Datos Extraídos")
             col1, col2 = st.columns(2)
@@ -151,11 +151,12 @@ def main():
             st.markdown("### Cálculo para Devolución")
             
             monto_pedido_val = float(d.get("monto_pedido", 0.0))
+            propina_val = float(d.get("propina", 0.0))
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
                 monto_pedido = st.number_input("PEDIDO ($)", value=monto_pedido_val, step=1.0)
             with col_m2:
-                propina = st.number_input("PROPINA ($)", value=0.0, step=1.0)
+                propina = st.number_input("PROPINA ($)", value=propina_val, step=1.0)
             with col_m3:
                 devolucion = st.number_input("DEVOLUCION ($)", value=monto_pedido_val, step=1.0)
             
@@ -249,7 +250,8 @@ def main():
                     "seguidores": seguidores,
                     "contactos": d.get("contactos", ""),
                     "limite": limite_pais,
-                    "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE"
+                    "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE",
+                    "user_email": st.session_state.get("user_email", "")
                 }
                 st.session_state["tipo_proceso"] = tipo_proceso
                 st.session_state["borrador"] = (reporte_cliente, analisis_caso, resolucion_caso)

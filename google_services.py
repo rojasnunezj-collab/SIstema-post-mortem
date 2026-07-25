@@ -99,7 +99,7 @@ def obtener_limites_pais():
         return {}
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def obtener_reglas_influencer():
+def obtener_reglas_influencer_v2():
     """Descarga las reglas de seguidores mínimos para cada red social desde la pestaña 'reglas'.
        Formato esperado de la hoja: Col A=Mercado, Col B=FB, Col C=Instagram, Col D=TW.
     """
@@ -180,8 +180,13 @@ def registrar_en_sheet(datos, resolucion):
                     break
         
         # Preparamos la fila a insertar
+        # Obtener fecha en hora local de Lima
+        import pytz
+        lima_tz = pytz.timezone("America/Lima")
+        fecha_lima = datetime.now(lima_tz).strftime("%Y-%m-%d %H:%M:%S")
+        
         fila = [
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            fecha_lima,
             datos.get("numero_caso", ""),
             datos.get("hora", ""),
             datos.get("fin_accion", ""),
@@ -205,7 +210,8 @@ def registrar_en_sheet(datos, resolucion):
             str(datos.get("monto_devolucion", 0)),
             str(datos.get("compensacion", 0)),
             f"${datos.get('total', 0)} - {datos.get('evaluacion_limite', '')}",
-            resolucion
+            resolucion,
+            datos.get("user_email", "")
         ]
         
         # table_range="A1" obliga a buscar el final de la tabla real de datos e ignora el formato de celdas vacías.
