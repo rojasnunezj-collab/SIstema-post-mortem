@@ -313,9 +313,9 @@ def get_oauth_credentials():
         st.error(f"Error al cargar credenciales OAuth (Token): {e}")
         return None
 
-def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
+def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imagenes_docs=None):
     """
-    Clona la plantilla base de Docs y reemplaza las variables dinámicas.
+    Clona la plantilla base de Docs, reemplaza variables de texto e inyecta imágenes.
     Retorna el enlace del documento generado.
     """
     creds = get_oauth_credentials()
@@ -377,11 +377,86 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia):
                 }
             })
             
-        # 3. Ejecutar los reemplazos en el documento copiado
-        docs_service.documents().batchUpdate(
-            documentId=new_doc_id, 
-            body={'requests': requests}
-        ).execute()
+        # Si no se subió imagen, borramos la variable de la plantilla
+        if imagenes_docs:
+            for var_key, img_file in imagenes_docs.items():
+                if not img_file:
+                    requests.append({
+                        'replaceAllText': {
+                            'containsText': {'text': var_key, 'matchCase': True},
+                            'replaceText': ''
+                        }
+                    })
+                    
+        # 3. Ejecutar los reemplazos de TEXTO en el documento copiado
+        if requests:
+            docs_service.documents().batchUpdate(
+                documentId=new_doc_id, 
+                body={'requests': requests}
+            ).execute()
+            
+        # 4. Procesar IMÁGENES
+        if imagenes_docs:
+            import io
+            from googleapiclient.http import MediaIoBaseUpload
+            
+            for var_key, img_file in imagenes_docs.items():
+                if img_file:
+                    try:
+                        # 4.1 Subir a Drive
+                        file_metadata = {
+                            'name': f"Postmortem_IMG_{var_key}_{numero_caso}",
+                            'parents': ["1n0J019rRNm3vg5xABuia-7Qje__qBG8i"]
+                        }
+                        file_stream = io.BytesIO(img_file.getvalue())
+                        media = MediaIoBaseUpload(file_stream, mimetype=img_file.type, resumable=True)
+                        drive_img = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                        img_id = drive_img.get('id')
+                        
+                        # Dar permisos de lectura
+                        drive_service.permissions().create(
+                            fileId=img_id,
+                            body={'type': 'anyone', 'role': 'reader'}
+                        ).execute()
+                        
+                        img_url = f"https://drive.google.com/uc?id={img_id}"
+                        
+                        # 4.2 Localizar la variable en Docs
+                        doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+                        start, end = None, None
+                        for element in doc_content.get('body', {}).get('content', []):
+                            if 'paragraph' in element:
+                                for p_elem in element['paragraph'].get('elements', []):
+                                    if 'textRun' in p_elem:
+                                        texto_p = p_elem['textRun'].get('content', '')
+                                        idx = texto_p.find(var_key)
+                                        if idx != -1:
+                                            start = p_elem['startIndex'] + idx
+                                            end = start + len(var_key)
+                                            break
+                                if start: break
+                                
+                        # 4.3 Inyectar
+                        if start and end:
+                            img_requests = [
+                                {
+                                    'deleteContentRange': {
+                                        'range': {'startIndex': start, 'endIndex': end}
+                                    }
+                                },
+                                {
+                                    'insertInlineImage': {
+                                        'uri': img_url,
+                                        'location': {'index': start},
+                                        'objectSize': {
+                                            'width': {'magnitude': 450, 'unit': 'PT'}
+                                        }
+                                    }
+                                }
+                            ]
+                            docs_service.documents().batchUpdate(documentId=new_doc_id, body={'requests': img_requests}).execute()
+                    except Exception as e:
+                        st.warning(f"No se pudo insertar la imagen para {var_key}: {e}")
         
         # Compartir para que quien tenga el link pueda leer o editar
         drive_service.permissions().create(

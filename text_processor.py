@@ -60,16 +60,18 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
     prompt = f"""
-Reescribe los siguientes textos de forma corporativa.
+Reescribe los siguientes textos (Reporte, Análisis, Resolución) para un documento oficial de Postmortem de atención al cliente.
 
-INSTRUCCIONES ESTRICTAS:
-- Eres un formateador de texto final. Tu única función es devolver el texto en español, corregido y con tono corporativo. TIENES ESTRICTAMENTE PROHIBIDO explicar tus cambios, repetir las reglas, o incluir tu proceso de razonamiento. Devuelve ÚNICAMENTE el valor final para cada campo.
-- ESTÁ PROHIBIDO empezar el párrafo con "Tras revisar", "Al verificar" o "Tras realizar la revisión". Ve directo al grano (ej: "Se identificó...", "El usuario indicó...").
-- Usa "reintegro" o "reembolso".
-- Usa "cupo" o "voucher".
-- Llama a la billetera virtual: "{regla_wallet}".
-- Usa tanto "cliente" como "usuario".
-- NO inventes datos.
+OBJETIVO:
+El texto resultante debe ser sumamente corporativo, analítico, profesional, y con ortografía perfecta. 
+
+REGLAS DE ESTILO (¡OBLIGATORIO!):
+1. Eres un formateador puro. NO agregues introducciones, NO expliques tus cambios, NO devuelvas markdown fuera del JSON.
+2. NUNCA empieces los párrafos con frases repetitivas como "Tras revisar", "Al verificar", "Se procede a", o "Tras realizar la revisión". Usa variedad y ve directo al grano (ej: "Se identificó...", "El usuario indicó...", "El sistema muestra...").
+3. Evita redundancias. Si el texto original repite lo mismo, condénsalo en un texto claro y potente.
+4. Vocabulario Obligatorio: Usa "reintegro" o "reembolso", "cupo" o "voucher". Llama a la billetera virtual del cliente exactamente como: "{regla_wallet}". Alterna entre los términos "cliente" y "usuario" para enriquecer la lectura.
+5. NO inventes datos, fechas, motivos ni montos que no estén en el texto original.
+6. Mantén la objetividad absoluta: no uses lenguaje emocional ("lamentablemente", "desafortunadamente", "por suerte").
 
 TEXTOS A REESCRIBIR:
 [Reporte]: {reporte_cliente}

@@ -129,8 +129,12 @@ def main():
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
             # Si el valor inicial no está en las opciones, dejamos el predeterminado
-            opciones_fraude = ["", "cliente fraude", "fraude confirmado", "cliente no fraude"]
-            idx_fraude = opciones_fraude.index(fraude_init) if fraude_init in opciones_fraude else 0
+            opciones_fraude = ["", "Cliente fraude", "Falso positivo", "Cliente no fraude"]
+            idx_fraude = 0
+            for i, opt in enumerate(opciones_fraude):
+                if opt.lower() == fraude_init.lower():
+                    idx_fraude = i
+                    break
             fraude = st.selectbox("FRAUDE", options=opciones_fraude, index=idx_fraude)
             
             problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
@@ -188,31 +192,21 @@ def main():
                     break
                     
             subtotal_1 = devolucion + propina
-            comp_proyectada = subtotal_1
-            total_proyectado = subtotal_1 + comp_proyectada
             
-            if limite_pais > 0:
-                if subtotal_1 > limite_pais:
-                    compensacion = 0.0
-                elif total_proyectado > limite_pais:
-                    compensacion = limite_pais - subtotal_1
-                else:
-                    compensacion = comp_proyectada
-            else:
-                compensacion = comp_proyectada
-                
+            st.markdown(f"**Subtotal (Devolución + Propina):** ${subtotal_1:.2f}")
+            compensacion = st.number_input("COMPENSACION PROYECTADA ($)", value=float(subtotal_1), step=1.0)
+            
             total = subtotal_1 + compensacion
             
-            col_met1, col_met2, col_met3 = st.columns(3)
-            with col_met1: st.metric("Devo + Propina", f"${subtotal_1:.2f}")
-            with col_met2: st.metric("COMPENSACIÓN FINAL", f"${compensacion:.2f}")
-            with col_met3: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
+            col_met1, col_met2 = st.columns(2)
+            with col_met1: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
+            with col_met2: st.metric("TOTAL DE SUMAS", f"${total:.2f}")
             
             if limite_pais > 0:
-                if total >= limite_pais or subtotal_1 > limite_pais:
-                    st.error(f"🔴 PASA EL LÍMITE (Total proyectado: ${total_proyectado:.2f} | Se ajustó compensación para límite de ${limite_pais:.2f})")
+                if total > limite_pais:
+                    st.error(f"🔴 Pasa el límite país (El total ${total:.2f} supera el límite de ${limite_pais:.2f})")
                 else:
-                    st.success(f"🟢 NO PASA EL LÍMITE (Total: ${total:.2f})")
+                    st.success(f"🟢 No pasa el límite país (Total: ${total:.2f})")
             else:
                 st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
             
@@ -299,6 +293,46 @@ def main():
                 ana_final = st.text_area("2. Análisis (Editado):", value=ana_limpio, height=150)
                 res_final = st.text_area("3. Resolución (Editado):", value=res_limpia, height=150)
                 
+                st.divider()
+                st.markdown("### 📸 Carga de Imágenes para Documento")
+                st.info("Sube las imágenes correspondientes para inyectarlas directamente en el Google Doc.")
+                
+                col_img1, col_img2 = st.columns(2)
+                with col_img1:
+                    img_slack = st.file_uploader("Captura Slack", type=['png', 'jpg', 'jpeg'])
+                    img_tablero = st.file_uploader("Tablero Operacional", type=['png', 'jpg', 'jpeg'])
+                with col_img2:
+                    form_gestion = st.file_uploader("Formulario Gestión", type=['png', 'jpg', 'jpeg'])
+                
+                img_devo, img_compen, form_devo = None, None, None
+                if dfin['monto_devolucion'] > 0 or dfin['propina'] > 0:
+                    st.markdown("**Imágenes de Devolución/Compensación**")
+                    col_d1, col_d2, col_d3 = st.columns(3)
+                    with col_d1: img_devo = st.file_uploader("Imagen Devolución", type=['png', 'jpg', 'jpeg'])
+                    with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
+                    with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
+                    
+                form_amenaza = None
+                if dfin['is_amenaza']:
+                    st.markdown("**Imagen de Amenaza**")
+                    form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
+                    
+                form_wl = None
+                if dfin['is_fraude']:
+                    st.markdown("**Imagen Fraude (WL)**")
+                    form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
+                
+                imagenes_docs = {
+                    "{{CAPTURA SLACK}}": img_slack,
+                    "{{TABLERO_OPERACIONAL}}": img_tablero,
+                    "{{IMAGEN_DEVO}}": img_devo,
+                    "{{IMAGEN_COMPEN}}": img_compen,
+                    "{{FORM_DEVO}}": form_devo,
+                    "{{FORM_AMENAZA}}": form_amenaza,
+                    "{{FORM_WL}}": form_wl,
+                    "{{FORM_GESTION}}": form_gestion
+                }
+                
                 if st.button("Aprobar y Generar Documento", type="primary"):
                     if not st.session_state.get("doc_generado_flag"):
                         with st.spinner("Guardando en Google Sheets..."):
@@ -307,9 +341,9 @@ def main():
                             if exito_sheet:
                                 st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
                         
-                        with st.spinner("Generando documento de Google Docs..."):
+                        with st.spinner("Generando documento e inyectando imágenes... (Esto puede tomar 1 minuto)"):
                             from google_services import generar_documento_postmortem
-                            doc_link = generar_documento_postmortem(dfin, rep_final, ana_final, res_final)
+                            doc_link = generar_documento_postmortem(dfin, rep_final, ana_final, res_final, imagenes_docs)
                             if doc_link:
                                 st.session_state["doc_generado_flag"] = True
                                 st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
@@ -342,6 +376,12 @@ def mostrar_listas(dfin):
     c1.code(dfin['numero_caso'], language="text")
     c2.markdown("**CASO**")
     c2.code(dfin['caso'], language="text")
+    
+    c3, c4 = st.columns(2)
+    c3.markdown("**HORA INGRESO SLACK**")
+    c3.code(dfin['hora'], language="text")
+    c4.markdown("**TERMINO DE ACCION**")
+    c4.code(dfin['fin_accion'], language="text")
     
     if dfin['es_influencer'] or dfin['is_amenaza'] or dfin['monto_devolucion'] > 0:
         st.divider()
