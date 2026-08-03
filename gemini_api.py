@@ -150,3 +150,76 @@ def extraer_datos_gemini(imagenes_pil):
     except Exception as e:
         st.error(f"❌ Error parseando JSON: {e}")
         return None
+
+def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data):
+    """
+    Evalúa una transcripción de chat con un cliente usando los criterios de las hojas de Google Sheets.
+    comunicacion_data: Lista de filas de la pestaña 'errores de comunicacion'.
+    gestion_data: Lista de filas de la pestaña 'error de gestion'.
+    """
+    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+    if not api_key:
+        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key"}
+        
+    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    if not modelo_seguro:
+        return {"om1": "Error Modelo", "om2": "Error", "om3": "Error"}
+        
+    # Extraer las descripciones de las columnas requeridas (Col C para comunicacion, Col B para gestion)
+    lista_comunicacion = []
+    for fila in comunicacion_data[1:]: # Saltar header
+        if len(fila) >= 3 and fila[2].strip():
+            lista_comunicacion.append(fila[2].strip())
+            
+    lista_gestion = []
+    for fila in gestion_data[1:]: # Saltar header
+        if len(fila) >= 2 and fila[1].strip():
+            lista_gestion.append(fila[1].strip())
+            
+    prompt = f"""
+    Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
+    
+    TRANSCRIPCIÓN:
+    {transcripcion}
+    
+    Tu tarea es identificar Oportunidades de Mejora (OM) cometidas por el agente.
+    
+    Tienes dos listas de errores definidos:
+    
+    Lista de Errores de Comunicación posibles (devuelve exactamente el texto si ocurre):
+    - {chr(10) + '    - '.join(lista_comunicacion)}
+    
+    Lista de Errores de Gestión posibles (devuelve exactamente el texto si ocurre):
+    - {chr(10) + '    - '.join(lista_gestion)}
+    
+    REGLAS ESTRICTAS PARA DEVOLVER EL RESULTADO:
+    1. Identifica TODOS los errores que el agente haya cometido basados en las dos listas anteriores.
+    2. Si encuentras un error grave que NO está en las listas (Falta de empatía grave, demora extrema), también puedes agregarlo como una OM general.
+    3. Asigna los errores encontrados a las claves 'om1', 'om2' y 'om3' por orden de importancia.
+    4. Tienes un máximo de 3 espacios (om1, om2, om3). Si encuentras 3 errores de comunicación, ocuparán los 3 espacios. Si encuentras 1 de gestión y 1 de comunicación, ocuparán om1 y om2.
+    5. Si hay menos de 3 errores encontrados, llena los espacios sobrantes con 'no aplica'. Si no hay NINGÚN error en toda la interacción, las tres claves deben decir 'no aplica'.
+       
+    Devuelve ÚNICAMENTE un JSON válido con las claves "om1", "om2" y "om3".
+    """
+    
+    try:
+        model = genai.GenerativeModel(modelo_seguro)
+        response = model.generate_content(prompt)
+        
+        raw_text = response.text.replace("```json", "").replace("```", "").strip()
+        start = raw_text.find('{')
+        
+        if start != -1:
+            raw_text = raw_text[start:]
+            end = raw_text.rfind('}')
+            if end != -1:
+                parsed_json = json.loads(raw_text[:end+1])
+                # Asegurar que todas las claves existan
+                for key in ["om1", "om2", "om3"]:
+                    if key not in parsed_json or not parsed_json[key]:
+                        parsed_json[key] = "no aplica"
+                return parsed_json
+                
+        return {"om1": "Error JSON", "om2": "Error", "om3": "Error"}
+    except Exception as e:
+        return {"om1": f"Error: {e}", "om2": "Error", "om3": "Error"}

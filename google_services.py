@@ -174,150 +174,41 @@ def obtener_reglas_influencer_v2():
         st.error(f"Error leyendo reglas de Influencers (ID {INFLUENCER_SHEET_ID}): {e}")
         return {}
         
-@st.cache_data(ttl=60, show_spinner=False)
-def obtener_metricas_registro():
-    """Obtiene la cantidad de documentos y acciones contando la columna de resolución."""
-    try:
-        from config import SPREADSHEET_ID
-        creds = get_credentials()
-        client = gspread.authorize(creds)
-        doc = client.open_by_key(SPREADSHEET_ID)
-        sheet = doc.worksheet("REGISTRO")
-        
-        # Columna Y (índice 25) es la resolución. O podemos traer todas y contar.
-        # get_all_values() es seguro si no es gigante.
-        filas = sheet.get_all_values()
-        
-        docs_count = 0
-        acciones_count = 0
-        
-        # Saltar encabezado
-        for fila in filas[1:]:
-            # Validar que la fila no esté completamente vacía
-            if not "".join(fila).strip():
-                continue
-                
-            # La columna 25 (índice 24) tiene la resolución ("SOLO ACCIONAR" u otro texto)
-            resolucion = fila[24] if len(fila) > 24 else ""
-            if "SOLO ACCIONAR" in str(resolucion).upper():
-                acciones_count += 1
-            else:
-                # Si tiene número de caso u hora en col 1/2, es un doc legítimo
-                docs_count += 1
-                
-        return docs_count, acciones_count
-    except Exception as e:
-        return 0, 0
-
-def registrar_en_sheet(datos, resolucion):
-    """
-    Registra el postmortem aprobado en la pestaña REGISTRO del Google Sheet corporativo.
-    """
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_criterios_evaluacion():
+    """Descarga los criterios de evaluación de interacciones desde el Sheet especificado."""
     creds = get_credentials()
-    if not creds:
-        return False
-        
+    if not creds: return [], []
     try:
         client = gspread.authorize(creds)
-        doc = client.open_by_key(SPREADSHEET_ID)
+        # ID de la hoja proporcionada
+        doc = client.open_by_key("1dIHOqJS7su3rnBRFKP4RgxZkib77Uj6K8ZOtGIhAJfc")
+        
         try:
-            sheet = doc.worksheet("REGISTRO")
-        except gspread.WorksheetNotFound:
-            # Fallback (búsqueda difusa)
-            sheet = doc.worksheet(doc.worksheets()[0].title)
-            for w in doc.worksheets():
-                if "registro" in w.title.lower():
-                    sheet = w
-                    break
-        
-        # Preparamos la fila a insertar
-        # Obtener fecha en hora local de Lima usando built-in timezone
-        from datetime import timezone, timedelta
-        lima_tz = timezone(timedelta(hours=-5))
-        fecha_lima = datetime.now(lima_tz).strftime("%Y-%m-%d %H:%M:%S")
-        
-        fila = [
-            fecha_lima,
-            datos.get("numero_caso", ""),
-            datos.get("hora", ""),
-            datos.get("fin_accion", ""),
-            datos.get("inicio_pm", ""),
-            datos.get("caso", ""),
-            datos.get("agente_escala", ""),
-            datos.get("motivo_reclamo", ""),
-            datos.get("ccr3", ""),
-            datos.get("correo", ""),
-            datos.get("pedido_link", ""),
-            datos.get("order_id", ""),
-            datos.get("user_id", ""),
-            datos.get("telefono", ""),  # Antes "numeros"
-            datos.get("fraude_str", ""), # Antes "fraude_operacional"
-            "",                          # Antes "fraude_fintech", ahora combinado en str
-            datos.get("pais", ""),
-            datos.get("seguidores", ""),
-            datos.get("contactos", ""),
-            str(datos.get("limite", 0)),
-            str(datos.get("monto_pedido", 0)),
-            str(datos.get("monto_devolucion", 0)),
-            str(datos.get("compensacion", 0)),
-            f"${datos.get('total', 0)} - {datos.get('evaluacion_limite', '')}",
-            resolucion,
-            datos.get("user_email", "")
-        ]
-        
-        # table_range="A1" obliga a buscar el final de la tabla real de datos e ignora el formato de celdas vacías.
-        # value_input_option='USER_ENTERED' permite que los números sean tratados como números reales en el sheet.
-        sheet.append_row(fila, table_range="A1", value_input_option='USER_ENTERED')
-        return True
-    except Exception as e:
-        st.error(f"Error al registrar en Sheet: {e}")
-        return False
-
-def obtener_cantidad_documentos():
-    """
-    Lee la cantidad de filas en la pestaña REGISTRO para calcular cuántos documentos se han hecho.
-    """
-    creds = get_credentials()
-    if not creds:
-        return 0
-        
-    try:
-        client = gspread.authorize(creds)
-        doc = client.open_by_key(SPREADSHEET_ID)
-        try:
-            sheet = doc.worksheet("REGISTRO")
-        except gspread.WorksheetNotFound:
-            for w in doc.worksheets():
-                if "registro" in w.title.lower():
-                    sheet = w
-                    break
-        
-        # Restamos 1 para descartar la fila del encabezado
-        filas = len(sheet.get_all_values())
-        return max(0, filas - 1)
-    except Exception:
-        return 0
-
-def get_oauth_credentials():
-    """Obtiene las credenciales OAuth de usuario real desde Streamlit Secrets para evadir límites de cuota."""
-    from google.oauth2.credentials import Credentials
-    try:
-        token_info = st.secrets["gcp_oauth_token"]
-        if isinstance(token_info, str):
-            import json
-            token_info = json.loads(token_info)
+            sheet_com = doc.worksheet("errores de comunicacion")
+            comunicacion = sheet_com.get_all_values()
+        except:
+            comunicacion = []
             
-        creds = Credentials.from_authorized_user_info(token_info, SCOPES)
-        return creds
+        try:
+            sheet_ges = doc.worksheet("error de gestion")
+            gestion = sheet_ges.get_all_values()
+        except:
+            gestion = []
+            
+        return comunicacion, gestion
     except Exception as e:
-        st.error(f"Error al cargar credenciales OAuth (Token): {e}")
-        return None
+        st.error(f"Error leyendo Criterios de Evaluación: {e}")
+        return [], []
 
-def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imagenes_docs=None):
+def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imagenes_docs=None, datos_contactos=None):
     """
     Clona la plantilla base de Docs, reemplaza variables de texto e inyecta imágenes.
     Retorna el enlace del documento generado.
     """
+    if datos_contactos is None:
+        datos_contactos = []
+        
     creds = get_oauth_credentials()
     if not creds:
         return None
@@ -344,7 +235,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         
         new_doc_id = copied_file.get('id')
         
-        # 2. Preparar los reemplazos
+        # 2. Preparar los reemplazos base
         from datetime import datetime
         variables = {
             "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
@@ -365,6 +256,33 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{NUMERO}}": datos.get("telefono", "")
         }
         
+        # 2.1 Preparar reemplazos para los bloques de contactos
+        MAX_CONTACTS = 7
+        for i in range(1, MAX_CONTACTS + 1):
+            if i <= len(datos_contactos):
+                # Este bloque se usa, preparamos las variables
+                c_data = datos_contactos[i - 1]
+                variables[f"{{{{NUMERO_CONTACTOS_{i}}}}}"] = str(i)
+                variables[f"{{{{FECHA_CONTACTO_{i}}}}}"] = c_data.get("fecha", "")
+                variables[f"{{{{AGENTE1_{i}}}}}"] = c_data.get("agente", "")
+                variables[f"{{{{AREA_{i}}}}}"] = c_data.get("area", "")
+                variables[f"{{{{LINK_HERO_{i}}}}}"] = c_data.get("link", "")
+                variables[f"{{{{OM1_{i}}}}}"] = c_data.get("om1", "")
+                variables[f"{{{{OM2_{i}}}}}"] = c_data.get("om2", "")
+                
+                # Manejar un pequeño error de tipeo en la plantilla del usuario para el 1er contacto (OM3_1_1 en vez de OM3_1)
+                variables[f"{{{{OM3_1_1}}}}"] = c_data.get("om3", "") if i == 1 else ""
+                variables[f"{{{{OM3_{i}}}}}"] = c_data.get("om3", "")
+                
+                variables[f"{{{{DESCRIPCION_CONTACTO_{i}}}}}"] = c_data.get("descripcion", "")
+                
+                # Eliminamos las etiquetas START y END para que queden limpias
+                variables[f"<<START_{i}>>"] = ""
+                variables[f"<<END_{i}>>"] = ""
+            else:
+                # Este bloque no se usa, no hacemos reemplazos de texto porque vamos a borrar el bloque completo.
+                pass
+                
         requests = []
         for key, value in variables.items():
             requests.append({
@@ -395,10 +313,73 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 body={'requests': requests}
             ).execute()
             
+        # 3.5 Borrar los bloques sobrantes (del 2 al 7 si no se usan)
+        doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+        
+        # Mapeamos el texto completo para encontrar los índices exactos
+        full_text = ""
+        index_map = []
+        
+        def extract_text_and_indices(content):
+            nonlocal full_text, index_map
+            for element in content:
+                if 'paragraph' in element:
+                    for p_elem in element['paragraph'].get('elements', []):
+                        if 'textRun' in p_elem:
+                            text = p_elem['textRun'].get('content', '')
+                            start_idx = p_elem['startIndex']
+                            for char in text:
+                                index_map.append(start_idx)
+                                full_text += char
+                                start_idx += 1
+                elif 'table' in element:
+                    for row in element['table'].get('tableRows', []):
+                        for cell in row.get('tableCells', []):
+                            extract_text_and_indices(cell.get('content', []))
+                            
+        extract_text_and_indices(doc_content.get('body', {}).get('content', []))
+        
+        delete_requests = []
+        # Solo empezamos desde el 2, porque el 1 no tiene etiqueta START y siempre se asume usado
+        for i in range(len(datos_contactos) + 1, MAX_CONTACTS + 1):
+            start_tag = f"<<START_{i}>>"
+            end_tag = f"<<END_{i}>>"
+            
+            start_idx_str = full_text.find(start_tag)
+            end_idx_str = full_text.find(end_tag)
+            
+            if start_idx_str != -1 and end_idx_str != -1:
+                # endIndex debe abarcar el final del tag <<END_X>>
+                end_idx_str_final = end_idx_str + len(end_tag)
+                
+                real_start = index_map[start_idx_str]
+                # tomamos el índice correspondiente al final
+                real_end = index_map[end_idx_str_final - 1] + 1
+                
+                delete_requests.append({
+                    'deleteContentRange': {
+                        'range': {
+                            'startIndex': real_start,
+                            'endIndex': real_end
+                        }
+                    }
+                })
+        
+        # Ejecutamos las eliminaciones en orden reverso para no afectar los índices
+        if delete_requests:
+            delete_requests.reverse()
+            docs_service.documents().batchUpdate(
+                documentId=new_doc_id, 
+                body={'requests': delete_requests}
+            ).execute()
+            
         # 4. Procesar IMÁGENES
         if imagenes_docs:
             import io
             from googleapiclient.http import MediaIoBaseUpload
+            
+            # Recargar el documento porque los índices cambiaron tras la eliminación
+            doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
             
             for var_key, img_file in imagenes_docs.items():
                 if img_file:
@@ -421,20 +402,29 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                         
                         img_url = f"https://drive.google.com/uc?id={img_id}"
                         
-                        # 4.2 Localizar la variable en Docs
-                        doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+                        # 4.2 Localizar la variable en Docs usando una búsqueda fresca por cada imagen
                         start, end = None, None
-                        for element in doc_content.get('body', {}).get('content', []):
-                            if 'paragraph' in element:
-                                for p_elem in element['paragraph'].get('elements', []):
-                                    if 'textRun' in p_elem:
-                                        texto_p = p_elem['textRun'].get('content', '')
-                                        idx = texto_p.find(var_key)
-                                        if idx != -1:
-                                            start = p_elem['startIndex'] + idx
-                                            end = start + len(var_key)
-                                            break
-                                if start: break
+                        
+                        def find_image_placeholder(content):
+                            nonlocal start, end
+                            for element in content:
+                                if 'paragraph' in element:
+                                    for p_elem in element['paragraph'].get('elements', []):
+                                        if 'textRun' in p_elem:
+                                            texto_p = p_elem['textRun'].get('content', '')
+                                            idx = texto_p.find(var_key)
+                                            if idx != -1:
+                                                start = p_elem['startIndex'] + idx
+                                                end = start + len(var_key)
+                                                return True
+                                elif 'table' in element:
+                                    for row in element['table'].get('tableRows', []):
+                                        for cell in row.get('tableCells', []):
+                                            if find_image_placeholder(cell.get('content', [])):
+                                                return True
+                            return False
+                            
+                        find_image_placeholder(doc_content.get('body', {}).get('content', []))
                                 
                         # 4.3 Inyectar
                         if start and end:
@@ -455,6 +445,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                                 }
                             ]
                             docs_service.documents().batchUpdate(documentId=new_doc_id, body={'requests': img_requests}).execute()
+                            
+                            # Recargamos el documento otra vez porque la imagen inyectada desplaza los índices para la siguiente
+                            doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
                     except Exception as e:
                         st.warning(f"No se pudo insertar la imagen para {var_key}: {e}")
         

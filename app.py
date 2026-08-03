@@ -194,7 +194,10 @@ def main():
             subtotal_1 = devolucion + propina
             
             st.markdown(f"**Subtotal (Devolución + Propina):** ${subtotal_1:.2f}")
-            compensacion = st.number_input("COMPENSACION PROYECTADA ($)", value=float(subtotal_1), step=1.0)
+            
+            # Ajuste dinámico de compensación para no pasar el límite
+            max_comp_permitida = max(0.0, limite_pais - subtotal_1) if limite_pais > 0 else float(subtotal_1)
+            compensacion = st.number_input("COMPENSACION PROYECTADA ($)", value=float(max_comp_permitida), step=1.0)
             
             total = subtotal_1 + compensacion
             
@@ -322,6 +325,71 @@ def main():
                     st.markdown("**Imagen Fraude (WL)**")
                     form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
                 
+                # --- NUEVA SECCIÓN DE CONTACTOS ---
+                st.divider()
+                st.markdown("### 📞 Detalle de Contactos (Interacciones)")
+                cantidad_contactos = st.number_input("Cantidad de contactos", min_value=1, max_value=7, value=1)
+                
+                from google_services import obtener_criterios_evaluacion
+                from gemini_api import evaluar_interaccion_gemini
+                
+                comunicacion_data, gestion_data = obtener_criterios_evaluacion()
+                datos_contactos = []
+                
+                for i in range(1, int(cantidad_contactos) + 1):
+                    with st.expander(f"Contacto #{i}", expanded=True):
+                        col_c1, col_c2 = st.columns(2)
+                        with col_c1:
+                            fecha_c = st.text_input(f"Fecha y hora (C{i})", key=f"fecha_c{i}")
+                            agente_c = st.text_input(f"Agente (C{i})", key=f"agente_c{i}")
+                        with col_c2:
+                            area_c = st.text_input(f"Área (C{i})", key=f"area_c{i}")
+                            link_c = st.text_input(f"Link HeroCare (C{i})", key=f"link_c{i}")
+                            
+                        transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
+                        
+                        if st.button(f"Analizar Interacción C{i}", key=f"btn_analizar_c{i}"):
+                            if transcripcion:
+                                with st.spinner("Analizando con Gemini..."):
+                                    resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data)
+                                    st.session_state[f"om_c{i}"] = resultado
+                            else:
+                                st.warning("Pega la transcripción para analizar.")
+                        
+                        om_data = st.session_state.get(f"om_c{i}", {"om1": "", "om2": "", "om3": ""})
+                        
+                        col_om1, col_om2, col_om3 = st.columns(3)
+                        with col_om1:
+                            om1 = st.text_area(f"OM1 (Oportunidad General C{i})", value=om_data.get("om1", ""), key=f"om1_c{i}")
+                        with col_om2:
+                            om2 = st.text_area(f"OM2 (Error Comunicación C{i})", value=om_data.get("om2", ""), key=f"om2_c{i}")
+                        with col_om3:
+                            om3 = st.text_area(f"OM3 (Error Gestión C{i})", value=om_data.get("om3", ""), key=f"om3_c{i}")
+                            
+                        st.markdown(f"**Imágenes del Contacto {i}**")
+                        col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
+                        img1 = col_img_c1.file_uploader(f"Imagen 1 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img1_c{i}")
+                        img2 = col_img_c2.file_uploader(f"Imagen 2 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img2_c{i}")
+                        img3 = col_img_c3.file_uploader(f"Imagen 3 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img3_c{i}")
+                        img4 = col_img_c4.file_uploader(f"Imagen 4 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img4_c{i}")
+                        
+                        contacto = {
+                            "fecha": fecha_c,
+                            "agente": agente_c,
+                            "area": area_c,
+                            "link": link_c,
+                            "om1": om1,
+                            "om2": om2,
+                            "om3": om3,
+                            "descripcion": transcripcion,
+                            "img1": img1,
+                            "img2": img2,
+                            "img3": img3,
+                            "img4": img4
+                        }
+                        datos_contactos.append(contacto)
+                # ------------------------------------
+                
                 imagenes_docs = {
                     "{{CAPTURA SLACK}}": img_slack,
                     "{{TABLERO_OPERACIONAL}}": img_tablero,
@@ -333,6 +401,14 @@ def main():
                     "{{FORM_GESTION}}": form_gestion
                 }
                 
+                # Inyectar las imágenes de los contactos
+                for idx, c_data in enumerate(datos_contactos):
+                    i = idx + 1
+                    imagenes_docs[f"{{{{IMAGEN_CONTACTO1_{i}}}}}"] = c_data["img1"]
+                    imagenes_docs[f"{{{{IMAGEN_CONTACTO2_{i}}}}}"] = c_data["img2"]
+                    imagenes_docs[f"{{{{IMAGEN_CONTACTO3_{i}}}}}"] = c_data["img3"]
+                    imagenes_docs[f"{{{{IMAGEN_CONTACTO4_{i}}}}}"] = c_data["img4"]
+                
                 if st.button("Aprobar y Generar Documento", type="primary"):
                     if not st.session_state.get("doc_generado_flag"):
                         with st.spinner("Guardando en Google Sheets..."):
@@ -343,7 +419,11 @@ def main():
                         
                         with st.spinner("Generando documento e inyectando imágenes... (Esto puede tomar 1 minuto)"):
                             from google_services import generar_documento_postmortem
-                            doc_link = generar_documento_postmortem(dfin, rep_final, ana_final, res_final, imagenes_docs)
+                            doc_link = generar_documento_postmortem(
+                                dfin, rep_final, ana_final, res_final, 
+                                imagenes_docs=imagenes_docs, 
+                                datos_contactos=datos_contactos
+                            )
                             if doc_link:
                                 st.session_state["doc_generado_flag"] = True
                                 st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
@@ -371,17 +451,19 @@ def mostrar_listas(dfin):
     st.subheader("📋 Datos para Formularios Internos")
     
     st.markdown("### Gestión Diaria")
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     c1.markdown("**CASO#**")
     c1.code(dfin['numero_caso'], language="text")
     c2.markdown("**CASO**")
     c2.code(dfin['caso'], language="text")
+    c3.markdown("**USER ID**")
+    c3.code(dfin.get('user_id', ''), language="text")
     
-    c3, c4 = st.columns(2)
-    c3.markdown("**HORA INGRESO SLACK**")
-    c3.code(dfin['hora'], language="text")
-    c4.markdown("**TERMINO DE ACCION**")
-    c4.code(dfin['fin_accion'], language="text")
+    c4, c5, c6 = st.columns(3)
+    c4.markdown("**HORA INGRESO SLACK**")
+    c4.code(dfin['hora'], language="text")
+    c5.markdown("**TERMINO DE ACCION**")
+    c5.code(dfin['fin_accion'], language="text")
     
     if dfin['es_influencer'] or dfin['is_amenaza'] or dfin['monto_devolucion'] > 0:
         st.divider()
