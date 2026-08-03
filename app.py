@@ -448,13 +448,15 @@ def main():
                                     st.session_state["doc_generado_flag"] = True
                                     st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
                                     st.balloons()
-                                    mostrar_listas(dfin)
                                 else:
-                                    st.warning("No se pudo generar el documento o hubo un fallo en el proceso.")
+                                    st.warning("⚠️ No se pudo generar el documento por el error de almacenamiento, pero tus datos sí fueron procesados.")
                         except Exception as e:
                             st.error(f"Fallo crítico al generar documento: {e}")
+                            
+                        # Siempre mostrar las listas generadas, falle o no el documento
+                        mostrar_listas(dfin)
                     else:
-                        st.success("✅ Este documento ya fue generado y registrado exitosamente en esta sesión.")
+                        st.success("✅ Este registro ya fue procesado exitosamente en esta sesión.")
                         mostrar_listas(dfin)
             else:
                 st.subheader("Generación de Listas Internas")
