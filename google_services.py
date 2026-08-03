@@ -14,15 +14,33 @@ SCOPES = [
 ]
 
 def get_credentials():
-    """Obtiene las credenciales de la cuenta de servicio desde Streamlit Secrets."""
-    # Intentamos obtener el secreto completo como diccionario
+    """Obtiene credenciales desde token de usuario (OAuth) o cuenta de servicio en Streamlit Secrets."""
+    import json
+    # 1. Intentamos usar el Token Personal OAuth del usuario (si está en los secretos)
+    try:
+        if "gcp_token" in st.secrets:
+            token_info = st.secrets["gcp_token"]
+            if isinstance(token_info, str):
+                token_info = json.loads(token_info)
+                
+            from google.oauth2.credentials import Credentials as UserCredentials
+            creds = UserCredentials.from_authorized_user_info(token_info, SCOPES)
+            
+            # Refrescar token si está expirado
+            if creds and creds.expired and creds.refresh_token:
+                from google.auth.transport.requests import Request
+                creds.refresh(Request())
+            return creds
+    except Exception as e:
+        st.warning(f"No se pudo cargar el token personal: {e}")
+
+    # 2. Si no hay token personal, usamos la cuenta de servicio (el Bot)
     try:
         service_account_info = st.secrets["gcp_service_account"]
-        # En st.secrets, si usamos un archivo TOML, [gcp_service_account] se lee como un dict
         if isinstance(service_account_info, str):
-            import json
             service_account_info = json.loads(service_account_info)
             
+        from google.oauth2.service_account import Credentials
         creds = Credentials.from_service_account_info(
             service_account_info,
             scopes=SCOPES
