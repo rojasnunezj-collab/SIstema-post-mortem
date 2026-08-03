@@ -18,8 +18,8 @@ def get_credentials():
     import json
     # 1. Intentamos usar el Token Personal OAuth del usuario (si está en los secretos)
     try:
-        if "gcp_token" in st.secrets:
-            token_info = st.secrets["gcp_token"]
+        if "gcp_oauth_token" in st.secrets:
+            token_info = st.secrets["gcp_oauth_token"]
             if isinstance(token_info, str):
                 token_info = json.loads(token_info)
                 
