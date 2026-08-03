@@ -411,24 +411,32 @@ def main():
                 
                 if st.button("Aprobar y Generar Documento", type="primary"):
                     if not st.session_state.get("doc_generado_flag"):
-                        with st.spinner("Guardando en Google Sheets..."):
-                            from google_services import registrar_en_sheet
-                            exito_sheet = registrar_en_sheet(dfin, res_final)
-                            if exito_sheet:
-                                st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
+                        try:
+                            with st.spinner("Guardando en Google Sheets..."):
+                                from google_services import registrar_en_sheet
+                                exito_sheet = registrar_en_sheet(dfin, res_final)
+                                if exito_sheet:
+                                    st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
+                        except Exception as e:
+                            st.error(f"Error guardando en Sheet: {e}")
                         
-                        with st.spinner("Generando documento e inyectando imágenes... (Esto puede tomar 1 minuto)"):
-                            from google_services import generar_documento_postmortem
-                            doc_link = generar_documento_postmortem(
-                                dfin, rep_final, ana_final, res_final, 
-                                imagenes_docs=imagenes_docs, 
-                                datos_contactos=datos_contactos
-                            )
-                            if doc_link:
-                                st.session_state["doc_generado_flag"] = True
-                                st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
-                                st.balloons()
-                                mostrar_listas(dfin)
+                        try:
+                            with st.spinner("Generando documento e inyectando imágenes... (Esto puede tomar 1 minuto)"):
+                                from google_services import generar_documento_postmortem
+                                doc_link = generar_documento_postmortem(
+                                    dfin, rep_final, ana_final, res_final, 
+                                    imagenes_docs=imagenes_docs, 
+                                    datos_contactos=datos_contactos
+                                )
+                                if doc_link:
+                                    st.session_state["doc_generado_flag"] = True
+                                    st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
+                                    st.balloons()
+                                    mostrar_listas(dfin)
+                                else:
+                                    st.warning("No se pudo generar el documento o hubo un fallo en el proceso.")
+                        except Exception as e:
+                            st.error(f"Fallo crítico al generar documento: {e}")
                     else:
                         st.success("✅ Este documento ya fue generado y registrado exitosamente en esta sesión.")
                         mostrar_listas(dfin)
