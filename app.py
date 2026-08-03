@@ -323,23 +323,17 @@ def main():
                 with col_img2:
                     form_gestion = st.file_uploader("Formulario Gestión", type=['png', 'jpg', 'jpeg'])
                 
-                img_devo, img_compen, form_devo = None, None, None
-                if dfin['monto_devolucion'] > 0 or dfin['propina'] > 0:
-                    st.markdown("**Imágenes de Devolución/Compensación**")
-                    col_d1, col_d2, col_d3 = st.columns(3)
-                    with col_d1: img_devo = st.file_uploader("Imagen Devolución", type=['png', 'jpg', 'jpeg'])
-                    with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
-                    with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
+                st.markdown("**Imágenes de Devolución/Compensación**")
+                col_d1, col_d2, col_d3 = st.columns(3)
+                with col_d1: img_devo = st.file_uploader("Imagen Devolución", type=['png', 'jpg', 'jpeg'])
+                with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
+                with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
                     
-                form_amenaza = None
-                if dfin['is_amenaza']:
-                    st.markdown("**Imagen de Amenaza**")
-                    form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
+                st.markdown("**Imagen de Amenaza (Opcional)**")
+                form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
                     
-                form_wl = None
-                if dfin['is_fraude']:
-                    st.markdown("**Imagen Fraude (WL)**")
-                    form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
+                st.markdown("**Imagen Fraude (WL) (Opcional)**")
+                form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
                 
                 # --- NUEVA SECCIÓN DE CONTACTOS ---
                 st.divider()
@@ -454,6 +448,56 @@ def main():
                             st.error(f"Fallo crítico al generar documento: {e}")
                             
                         # Siempre mostrar las listas generadas, falle o no el documento
+                        st.divider()
+                        st.markdown("### 📥 Descarga Manual (Contingencia)")
+                        from datetime import datetime
+                        texto_contingencia = f"""# Postmortem Caso {dfin.get("caso", "")}
+
+**Fecha:** {datetime.now().strftime("%d/%m/%Y")}
+**CCR3:** {dfin.get("ccr3", "")}
+**Motivo de Reclamo:** {dfin.get("motivo_reclamo", "")}
+**Monto Devolución:** ${dfin.get('monto_devolucion', 0)}
+**Compensación Final:** ${dfin.get('compensacion', 0)}
+**Order ID:** {dfin.get("order_id", "")}
+**User ID:** {dfin.get("user_id", "")}
+**Correo:** {dfin.get("correo", "")}
+**Link Pedido:** {dfin.get("pedido_link", "")}
+**Agente Escala:** {dfin.get("agente_escala", "")}
+**Cliente Fraude:** {dfin.get("fraude_str", "")}
+**Número Teléfono:** {dfin.get("telefono", "")}
+
+---
+## Detalles de Contactos:"""
+                        for i, c_data in enumerate(datos_contactos, 1):
+                            texto_contingencia += f"""
+### Contacto #{i}
+**Fecha:** {c_data.get("fecha", "")}
+**Agente:** {c_data.get("agente", "")} ({c_data.get("area", "")})
+**Link Hero:** {c_data.get("link", "")}
+**OM1:** {c_data.get("om1", "")}
+**OM2:** {c_data.get("om2", "")}
+**OM3:** {c_data.get("om3", "")}
+**Descripción:** {c_data.get("descripcion", "")}"""
+
+                        texto_contingencia += f"""
+---
+## Reporte del Cliente
+{rep_final}
+
+## Análisis del Problema
+{ana_final}
+
+## Resolución / Accionables
+{res_final}
+"""                     
+                        st.download_button(
+                            label="Descargar Texto del Documento (Backup)",
+                            data=texto_contingencia,
+                            file_name=f"Postmortem_{dfin.get('numero_caso', 'S_N')}.txt",
+                            mime="text/plain",
+                            type="secondary"
+                        )
+                        
                         mostrar_listas(dfin)
                     else:
                         st.success("✅ Este registro ya fue procesado exitosamente en esta sesión.")
