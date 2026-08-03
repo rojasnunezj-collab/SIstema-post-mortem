@@ -201,6 +201,56 @@ def obtener_criterios_evaluacion():
         st.error(f"Error leyendo Criterios de Evaluación: {e}")
         return [], []
 
+def registrar_en_sheet(datos, resolucion):
+    """
+    Registra el postmortem aprobado en el Google Sheet corporativo.
+    """
+    creds = get_credentials()
+    if not creds:
+        return False
+        
+    try:
+        from config import SPREADSHEET_ID
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+        
+        # Preparamos la fila a insertar
+        from datetime import datetime
+        fila = [
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            datos.get("numero_caso", ""),
+            datos.get("hora", ""),
+            datos.get("fin_accion", ""),
+            datos.get("inicio_pm", ""),
+            datos.get("caso", ""),
+            datos.get("agente_escala", ""),
+            datos.get("motivo_reclamo", ""),
+            datos.get("ccr3", ""),
+            datos.get("correo", ""),
+            datos.get("pedido_link", ""),
+            datos.get("order_id", ""),
+            datos.get("user_id", ""),
+            datos.get("numeros", ""),
+            datos.get("fraude_operacional", ""),
+            datos.get("fraude_fintech", ""),
+            datos.get("pais", ""),
+            datos.get("seguidores", ""),
+            datos.get("contactos", ""),
+            str(datos.get("limite", 0)),
+            str(datos.get("monto_pedido", 0)),
+            str(datos.get("monto_devolucion", 0)),
+            str(datos.get("compensacion", 0)),
+            f"${datos.get('total', 0)} - {datos.get('evaluacion_limite', '')}",
+            resolucion
+        ]
+        
+        sheet.append_row(fila)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error al registrar en Sheet: {e}")
+        return False
+
 def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imagenes_docs=None, datos_contactos=None):
     """
     Clona la plantilla base de Docs, reemplaza variables de texto e inyecta imágenes.
@@ -209,7 +259,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
     if datos_contactos is None:
         datos_contactos = []
         
-    creds = get_oauth_credentials()
+    creds = get_credentials()
     if not creds:
         return None
         
