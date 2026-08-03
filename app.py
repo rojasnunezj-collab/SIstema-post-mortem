@@ -44,6 +44,22 @@ def main():
         except Exception as e:
             st.warning("No se pudo cargar el contador.")
             
+        st.divider()
+        if st.button("🧹 Liberar Espacio del Bot", help="Vacía la papelera interna de la cuenta de servicio si se llenó la cuota."):
+            try:
+                with st.spinner("Liberando espacio..."):
+                    from google_services import get_credentials
+                    from googleapiclient.discovery import build
+                    creds = get_credentials()
+                    if creds:
+                        drive_service = build('drive', 'v3', credentials=creds)
+                        # Empty trash
+                        drive_service.files().emptyTrash().execute()
+                        # Also delete old docs owned by bot if necessary, but empty trash is safer first.
+                        st.success("¡Papelera del bot vaciada con éxito!")
+            except Exception as e:
+                st.error(f"Error al limpiar: {e}")
+            
         # Panel de Administrador
         from config import ADMIN_USERS
         if st.session_state.get("user_email") in ADMIN_USERS:
