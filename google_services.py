@@ -201,6 +201,40 @@ def obtener_criterios_evaluacion():
         st.error(f"Error leyendo Criterios de Evaluación: {e}")
         return [], []
 
+@st.cache_data(ttl=60, show_spinner=False)
+def obtener_metricas_registro():
+    """Obtiene la cantidad de documentos y acciones contando la columna de resolución."""
+    try:
+        from config import SPREADSHEET_ID
+        creds = get_credentials()
+        client = gspread.authorize(creds)
+        doc = client.open_by_key(SPREADSHEET_ID)
+        sheet = doc.worksheet("REGISTRO")
+        
+        # Columna Y (índice 25) es la resolución.
+        filas = sheet.get_all_values()
+        
+        docs_count = 0
+        acciones_count = 0
+        
+        # Saltar encabezado
+        for fila in filas[1:]:
+            # Validar que la fila no esté completamente vacía
+            if not "".join(fila).strip():
+                continue
+                
+            # La columna 25 (índice 24) tiene la resolución ("SOLO ACCIONAR" u otro texto)
+            resolucion = fila[24] if len(fila) > 24 else ""
+            if "SOLO ACCIONAR" in str(resolucion).upper():
+                acciones_count += 1
+            else:
+                # Si tiene número de caso u hora en col 1/2, es un doc legítimo
+                docs_count += 1
+                
+        return docs_count, acciones_count
+    except Exception as e:
+        return 0, 0
+
 def registrar_en_sheet(datos, resolucion):
     """
     Registra el postmortem aprobado en el Google Sheet corporativo.
