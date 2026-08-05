@@ -424,65 +424,69 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 body={'requests': requests}
             ).execute()
             
-        # 3.5 Borrar los bloques sobrantes (del 2 al 7 si no se usan)
-        doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
-        
-        # Mapeamos el texto completo para encontrar los índices exactos
-        full_text = ""
-        index_map = []
-        
-        def extract_text_and_indices(content):
-            nonlocal full_text, index_map
-            for element in content:
-                if 'paragraph' in element:
-                    for p_elem in element['paragraph'].get('elements', []):
-                        if 'textRun' in p_elem:
-                            text = p_elem['textRun'].get('content', '')
-                            start_idx = p_elem['startIndex']
-                            for char in text:
-                                index_map.append(start_idx)
-                                full_text += char
-                                start_idx += 1
-                elif 'table' in element:
-                    for row in element['table'].get('tableRows', []):
-                        for cell in row.get('tableCells', []):
-                            extract_text_and_indices(cell.get('content', []))
-                            
-        extract_text_and_indices(doc_content.get('body', {}).get('content', []))
-        
-        delete_requests = []
-        # Solo empezamos desde el 2, porque el 1 no tiene etiqueta START y siempre se asume usado
-        for i in range(len(datos_contactos) + 1, MAX_CONTACTS + 1):
-            start_tag = f"<<START_{i}>>"
-            end_tag = f"<<END_{i}>>"
+        try:
+            # 3.5 Borrar los bloques sobrantes (del 2 al 7 si no se usan)
+            doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
             
-            start_idx_str = full_text.find(start_tag)
-            end_idx_str = full_text.find(end_tag)
+            # Mapeamos el texto completo para encontrar los índices exactos
+            full_text = ""
+            index_map = []
             
-            if start_idx_str != -1 and end_idx_str != -1:
-                # endIndex debe abarcar el final del tag <<END_X>>
-                end_idx_str_final = end_idx_str + len(end_tag)
+            def extract_text_and_indices(content):
+                nonlocal full_text, index_map
+                for element in content:
+                    if 'paragraph' in element:
+                        for p_elem in element['paragraph'].get('elements', []):
+                            if 'textRun' in p_elem:
+                                text = p_elem['textRun'].get('content', '')
+                                start_idx = p_elem['startIndex']
+                                for char in text:
+                                    index_map.append(start_idx)
+                                    full_text += char
+                                    start_idx += 1
+                    elif 'table' in element:
+                        for row in element['table'].get('tableRows', []):
+                            for cell in row.get('tableCells', []):
+                                extract_text_and_indices(cell.get('content', []))
+                                
+            extract_text_and_indices(doc_content.get('body', {}).get('content', []))
+            
+            delete_requests = []
+            # Solo empezamos desde el 2, porque el 1 no tiene etiqueta START y siempre se asume usado
+            for i in range(len(datos_contactos) + 1, MAX_CONTACTS + 1):
+                start_tag = f"<<START_{i}>>"
+                end_tag = f"<<END_{i}>>"
                 
-                real_start = index_map[start_idx_str]
-                # tomamos el índice correspondiente al final
-                real_end = index_map[end_idx_str_final - 1] + 1
+                start_idx_str = full_text.find(start_tag)
+                end_idx_str = full_text.find(end_tag)
                 
-                delete_requests.append({
-                    'deleteContentRange': {
-                        'range': {
-                            'startIndex': real_start,
-                            'endIndex': real_end
+                if start_idx_str != -1 and end_idx_str != -1:
+                    # endIndex debe abarcar el final del tag <<END_X>>
+                    end_idx_str_final = end_idx_str + len(end_tag)
+                    
+                    real_start = index_map[start_idx_str]
+                    # tomamos el índice correspondiente al final
+                    real_end = index_map[end_idx_str_final - 1] + 1
+                    
+                    delete_requests.append({
+                        'deleteContentRange': {
+                            'range': {
+                                'startIndex': real_start,
+                                'endIndex': real_end
+                            }
                         }
-                    }
-                })
-        
-        # Ejecutamos las eliminaciones en orden reverso para no afectar los índices
-        if delete_requests:
-            delete_requests.reverse()
-            docs_service.documents().batchUpdate(
-                documentId=new_doc_id, 
-                body={'requests': delete_requests}
-            ).execute()
+                    })
+            
+            # Ejecutamos las eliminaciones en orden reverso para no afectar los índices
+            if delete_requests:
+                delete_requests.reverse()
+                docs_service.documents().batchUpdate(
+                    documentId=new_doc_id, 
+                    body={'requests': delete_requests}
+                ).execute()
+        except Exception as e:
+            import streamlit as st
+            st.warning(f"Error al borrar bloques sobrantes de contactos: {e}. El documento se generó, pero puede contener texto extra.")
             
         # 4. Procesar IMÁGENES
         if imagenes_docs:

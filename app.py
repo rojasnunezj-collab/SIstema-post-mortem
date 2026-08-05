@@ -77,7 +77,6 @@ def main():
                 st.rerun()
 
     st.title("Generador Automático de Postmortems")
-    test_contactos_switch = st.checkbox("Modo Pruebas: Incluir sección de Contactos en el flujo", value=True)
     st.write("Sube las capturas del caso para extraer la información.")
 
     uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
@@ -348,10 +347,12 @@ def main():
                         mostrar_listas(st.session_state["datos_finales"])
                         
                 # --- NUEVA SECCIÓN DE CONTACTOS ---
+                st.divider()
+                st.markdown("### 📞 Detalle de Contactos (Interacciones)")
+                incluir_contactos = st.checkbox("Incluir contactos en el documento", value=True)
+                
                 datos_contactos = []
-                if test_contactos_switch:
-                    st.divider()
-                    st.markdown("### 📞 Detalle de Contactos (Interacciones)")
+                if incluir_contactos:
                     cantidad_contactos = st.number_input("Cantidad de agentes / contactos", min_value=0, max_value=7, value=1)
                     
                     from google_services import obtener_criterios_evaluacion
