@@ -227,7 +227,10 @@ def obtener_metricas_registro():
         creds = get_credentials()
         client = gspread.authorize(creds)
         doc = client.open_by_key(SPREADSHEET_ID)
-        sheet = doc.worksheet("REGISTRO")
+        try:
+            sheet = doc.worksheet("REGISTRO")
+        except gspread.WorksheetNotFound:
+            sheet = doc.sheet1
         
         # Columna Y (índice 25) es la resolución.
         filas = sheet.get_all_values()
@@ -251,6 +254,8 @@ def obtener_metricas_registro():
                 
         return docs_count, acciones_count
     except Exception as e:
+        import streamlit as st
+        st.warning(f"Error en contador: {e}")
         return 0, 0
 
 def registrar_en_sheet(datos, resolucion):
@@ -264,7 +269,11 @@ def registrar_en_sheet(datos, resolucion):
     try:
         from config import SPREADSHEET_ID
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+        doc = client.open_by_key(SPREADSHEET_ID)
+        try:
+            sheet = doc.worksheet("REGISTRO")
+        except gspread.WorksheetNotFound:
+            sheet = doc.sheet1
         
         # Preparamos la fila a insertar
         from datetime import datetime
@@ -320,8 +329,8 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         docs_service = build('docs', 'v1', credentials=creds)
         
         # 1. Copiar el documento plantilla a la carpeta destino
-        numero_caso = datos.get("numero_caso", "S_N")
-        title = f"Post mortem {numero_caso}"
+        user_id = datos.get("user_id", "S_N")
+        title = f"Post mortem {user_id}"
         folder_id = "16IaiuHgqtGu09T0MIC1TL9Zq0e-nsfAY"
         
         body = {
@@ -488,7 +497,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                     try:
                         # 4.1 Subir a Drive
                         file_metadata = {
-                            'name': f"Postmortem_IMG_{var_key}_{numero_caso}",
+                            'name': f"Postmortem_IMG_{var_key}_{user_id}",
                             'parents': ["1n0J019rRNm3vg5xABuia-7Qje__qBG8i"]
                         }
                         file_stream = io.BytesIO(img_file.getvalue())

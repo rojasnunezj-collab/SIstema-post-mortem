@@ -77,6 +77,7 @@ def main():
                 st.rerun()
 
     st.title("Generador Automático de Postmortems")
+    test_contactos_switch = st.checkbox("Modo Pruebas: Incluir sección de Contactos en el flujo", value=True)
     st.write("Sube las capturas del caso para extraer la información.")
 
     uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
@@ -207,19 +208,24 @@ def main():
                     limite_pais = float(p_lim)
                     break
                     
-            subtotal_1 = devolucion + propina
+            pedido_mas_propina = monto_pedido + propina
             
-            st.markdown(f"**Subtotal (Devolución + Propina):** ${subtotal_1:.2f}")
+            st.markdown(f"**Subtotal (Pedido + Propina):** ${pedido_mas_propina:.2f}")
             
-            # Ajuste dinámico de compensación para no pasar el límite
-            max_comp_permitida = max(0.0, limite_pais - subtotal_1) if limite_pais > 0 else float(subtotal_1)
-            compensacion = st.number_input("COMPENSACION PROYECTADA ($)", value=float(max_comp_permitida), step=1.0)
+            compensacion_ideal = pedido_mas_propina
+            if limite_pais > 0:
+                max_comp_permitida = max(0.0, limite_pais - pedido_mas_propina)
+                compensacion_sugerida = min(compensacion_ideal, max_comp_permitida)
+            else:
+                compensacion_sugerida = compensacion_ideal
+                
+            compensacion = st.number_input("COMPENSACION PROYECTADA ($)", value=float(compensacion_sugerida), step=1.0)
             
-            total = subtotal_1 + compensacion
+            total = pedido_mas_propina + compensacion
             
             col_met1, col_met2 = st.columns(2)
             with col_met1: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
-            with col_met2: st.metric("TOTAL DE SUMAS", f"${total:.2f}")
+            with col_met2: st.metric("PEDIDO+PROPINA + COMPENSACIÓN", f"${total:.2f}")
             
             if limite_pais > 0:
                 if total > limite_pais:
@@ -335,12 +341,20 @@ def main():
                 st.markdown("**Imagen Fraude (WL) (Opcional)**")
                 form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
                 
-                # --- NUEVA SECCIÓN DE CONTACTOS ---
                 st.divider()
-                st.markdown("### 📞 Detalle de Contactos (Interacciones)")
-                cantidad_contactos = st.number_input("Cantidad de contactos", min_value=1, max_value=7, value=1)
-                
-                from google_services import obtener_criterios_evaluacion
+                if "datos_finales" in st.session_state:
+                    mostrar_listas_toggle = st.checkbox("Mostrar datos para formularios internos", value=True)
+                    if mostrar_listas_toggle:
+                        mostrar_listas(st.session_state["datos_finales"])
+                        
+                # --- NUEVA SECCIÓN DE CONTACTOS ---
+                datos_contactos = []
+                if test_contactos_switch:
+                    st.divider()
+                    st.markdown("### 📞 Detalle de Contactos (Interacciones)")
+                    cantidad_contactos = st.number_input("Cantidad de agentes / contactos", min_value=0, max_value=7, value=1)
+                    
+                    from google_services import obtener_criterios_evaluacion
                 from gemini_api import evaluar_interaccion_gemini
                 
                 comunicacion_data, gestion_data = obtener_criterios_evaluacion()
@@ -361,12 +375,21 @@ def main():
                         if st.button(f"Analizar Interacción C{i}", key=f"btn_analizar_c{i}"):
                             if transcripcion:
                                 with st.spinner("Analizando con Gemini..."):
-                                    resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data)
+                                    resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agente_c)
                                     st.session_state[f"om_c{i}"] = resultado
+                                    if "resumen" in resultado:
+                                        # We put the summary into a display text area since we can't easily overwrite the input's state if it's already rendered
+                                        st.session_state[f"resumen_c{i}"] = resultado["resumen"]
                             else:
                                 st.warning("Pega la transcripción para analizar.")
                         
                         om_data = st.session_state.get(f"om_c{i}", {"om1": "", "om2": "", "om3": ""})
+                        
+                        if f"resumen_c{i}" in st.session_state:
+                            st.info("Resumen generado:")
+                            resumen_texto = st.text_area("Texto resumido a inyectar", value=st.session_state[f"resumen_c{i}"], height=100, key=f"resumen_input_{i}")
+                        else:
+                            resumen_texto = transcripcion
                         
                         col_om1, col_om2, col_om3 = st.columns(3)
                         with col_om1:
@@ -391,7 +414,7 @@ def main():
                             "om1": om1,
                             "om2": om2,
                             "om3": om3,
-                            "descripcion": transcripcion,
+                            "descripcion": resumen_texto,
                             "img1": img1,
                             "img2": img2,
                             "img3": img3,
@@ -498,10 +521,8 @@ def main():
                             type="secondary"
                         )
                         
-                        mostrar_listas(dfin)
                     else:
                         st.success("✅ Este registro ya fue procesado exitosamente en esta sesión.")
-                        mostrar_listas(dfin)
             else:
                 st.subheader("Generación de Listas Internas")
                 if not st.session_state.get("accionar_generado_flag"):
@@ -511,10 +532,9 @@ def main():
                         if exito_sheet:
                             st.session_state["accionar_generado_flag"] = True
                             st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
-                    st.success("📄 ¡Datos guardados! Revisa las listas abajo.")
+                    st.success("📄 ¡Datos guardados! Revisa las listas en la parte superior.")
                 else:
-                    st.success("✅ Registro guardado exitosamente. Revisa las listas abajo.")
-                mostrar_listas(dfin)
+                    st.success("✅ Registro guardado exitosamente. Revisa las listas en la parte superior.")
 
 def mostrar_listas(dfin):
     st.divider()
@@ -522,8 +542,6 @@ def mostrar_listas(dfin):
     
     st.markdown("### Gestión Diaria")
     c1, c2, c3 = st.columns(3)
-    c1.markdown("**CASO#**")
-    c1.code(dfin['numero_caso'], language="text")
     c2.markdown("**CASO**")
     c2.code(dfin['caso'], language="text")
     c3.markdown("**USER ID**")
