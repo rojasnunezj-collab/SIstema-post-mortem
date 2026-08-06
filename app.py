@@ -88,30 +88,31 @@ def main():
             cols[i].image(image, caption=file.name, use_container_width=True)
 
     st.divider()
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
-            if not uploaded_files:
-                st.warning("⚠️ Sube al menos una imagen para usar la extracción automática.")
-            else:
-                with st.spinner("Analizando las imágenes..."):
-                    imagenes_pil = [Image.open(f) for f in uploaded_files]
-                    
-                    from gemini_api import extraer_datos_gemini
-                    datos = extraer_datos_gemini(imagenes_pil)
-                    
-                    if datos:
-                        # Pasamos el tiempo deducido directamente al fin de acción
-                        datos["fin_accion"] = datos.get("ultima_interaccion", "")
-                        st.session_state["datos_extraidos"] = datos
-                        st.success("✅ ¡Datos extraídos con éxito!")
-                    
-    with col_btn2:
-        if st.button("Llenado Manual (Post de Guru)", type="secondary", use_container_width=True):
-            st.session_state["datos_extraidos"] = {}
-            st.success("📝 Modo manual activado. Puedes llenar los campos a continuación.")
-    
-    if "datos_extraidos" in st.session_state:
+    if True:
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
+                if not uploaded_files:
+                    st.warning("⚠️ Sube al menos una imagen para usar la extracción automática.")
+                else:
+                    with st.spinner("Analizando las imágenes..."):
+                        imagenes_pil = [Image.open(f) for f in uploaded_files]
+                        
+                        from gemini_api import extraer_datos_gemini
+                        datos = extraer_datos_gemini(imagenes_pil)
+                        
+                        if datos:
+                            # Pasamos el tiempo deducido directamente al fin de acción
+                            datos["fin_accion"] = datos.get("ultima_interaccion", "")
+                            st.session_state["datos_extraidos"] = datos
+                            st.success("✅ ¡Datos extraídos con éxito!")
+                        
+        with col_btn2:
+            if st.button("Llenado Manual (Post de Guru)", type="secondary", use_container_width=True):
+                st.session_state["datos_extraidos"] = {}
+                st.success("📝 Modo manual activado. Puedes llenar los campos a continuación.")
+        
+        if "datos_extraidos" in st.session_state:
             st.subheader("Auditoría de Datos y Cálculos")
             d = st.session_state["datos_extraidos"]
             
