@@ -198,8 +198,16 @@ def main():
             st.divider()
             st.markdown("### Cálculo para Devolución")
             
-            monto_pedido_val = float(d.get("monto_pedido", 0.0))
-            propina_val = float(d.get("propina", 0.0))
+            def safe_float(val):
+                try:
+                    if val is None or str(val).strip() == "":
+                        return 0.0
+                    return float(str(val).replace(',', '.').replace('$', '').strip())
+                except ValueError:
+                    return 0.0
+
+            monto_pedido_val = safe_float(d.get("monto_pedido", 0.0))
+            propina_val = safe_float(d.get("propina", 0.0))
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
                 monto_pedido = st.number_input("PEDIDO ($)", value=monto_pedido_val, step=1.0)
