@@ -88,19 +88,25 @@ def main():
             cols[i].image(image, caption=file.name, use_container_width=True)
 
         st.divider()
-        
-        if st.button("Extraer Datos (Gemini AI)", type="primary"):
-            with st.spinner("Analizando las imágenes..."):
-                imagenes_pil = [Image.open(f) for f in uploaded_files]
-                
-                from gemini_api import extraer_datos_gemini
-                datos = extraer_datos_gemini(imagenes_pil)
-                
-                if datos:
-                    # Pasamos el tiempo deducido directamente al fin de acción
-                    datos["fin_accion"] = datos.get("ultima_interaccion", "")
-                    st.session_state["datos_extraidos"] = datos
-                    st.success("✅ ¡Datos extraídos con éxito!")
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
+                with st.spinner("Analizando las imágenes..."):
+                    imagenes_pil = [Image.open(f) for f in uploaded_files]
+                    
+                    from gemini_api import extraer_datos_gemini
+                    datos = extraer_datos_gemini(imagenes_pil)
+                    
+                    if datos:
+                        # Pasamos el tiempo deducido directamente al fin de acción
+                        datos["fin_accion"] = datos.get("ultima_interaccion", "")
+                        st.session_state["datos_extraidos"] = datos
+                        st.success("✅ ¡Datos extraídos con éxito!")
+                        
+        with col_btn2:
+            if st.button("Llenado Manual (Post de Guru)", type="secondary", use_container_width=True):
+                st.session_state["datos_extraidos"] = {}
+                st.success("📝 Modo manual activado. Puedes llenar los campos a continuación.")
         
         if "datos_extraidos" in st.session_state:
             st.subheader("Auditoría de Datos y Cálculos")
@@ -115,7 +121,6 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                caso_nro = st.text_input("CASO #", value=d.get("numero_caso", ""))
                 hora = st.text_input("HORA", value=d.get("hora", ""))
                 fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", "Revisar"))
                 caso = st.text_input("CASO", value=d.get("caso", ""))
@@ -261,7 +266,7 @@ def main():
             if st.button(label_btn, type="primary"):
                 # Save data to session
                 st.session_state["datos_finales"] = {
-                    "numero_caso": caso_nro,
+                    "numero_caso": d.get("numero_caso", ""),
                     "caso": caso,
                     "hora": hora,
                     "fin_accion": fin_accion,
@@ -333,12 +338,17 @@ def main():
                 with col_d1: img_devo = st.file_uploader("Imagen Devolución", type=['png', 'jpg', 'jpeg'])
                 with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
                 with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
+                if dfin.get("is_amenaza"):
+                    st.markdown("**Imagen de Amenaza (Opcional)**")
+                    form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
+                else:
+                    form_amenaza = None
                     
-                st.markdown("**Imagen de Amenaza (Opcional)**")
-                form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
-                    
-                st.markdown("**Imagen Fraude (WL) (Opcional)**")
-                form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
+                if dfin.get("is_fraude"):
+                    st.markdown("**Imagen Fraude (WL) (Opcional)**")
+                    form_wl = st.file_uploader("Formulario WL", type=['png', 'jpg', 'jpeg'])
+                else:
+                    form_wl = None
                 
                 st.divider()
                 if "datos_finales" in st.session_state:
@@ -384,7 +394,7 @@ def main():
                             else:
                                 st.warning("Pega la transcripción para analizar.")
                         
-                        om_data = st.session_state.get(f"om_c{i}", {"om1": "", "om2": "", "om3": ""})
+                        om_data = st.session_state.get(f"om_c{i}", {"om1": "", "om2": "", "om3": "", "om4": ""})
                         
                         if f"resumen_c{i}" in st.session_state:
                             st.info("Resumen generado:")
@@ -392,13 +402,15 @@ def main():
                         else:
                             resumen_texto = transcripcion
                         
-                        col_om1, col_om2, col_om3 = st.columns(3)
+                        col_om1, col_om2, col_om3, col_om4 = st.columns(4)
                         with col_om1:
-                            om1 = st.text_area(f"OM1 (Oportunidad General C{i})", value=om_data.get("om1", ""), key=f"om1_c{i}")
+                            om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1", ""), key=f"om1_c{i}")
                         with col_om2:
-                            om2 = st.text_area(f"OM2 (Error Comunicación C{i})", value=om_data.get("om2", ""), key=f"om2_c{i}")
+                            om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2", ""), key=f"om2_c{i}")
                         with col_om3:
-                            om3 = st.text_area(f"OM3 (Error Gestión C{i})", value=om_data.get("om3", ""), key=f"om3_c{i}")
+                            om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3", ""), key=f"om3_c{i}")
+                        with col_om4:
+                            om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4", ""), key=f"om4_c{i}")
                             
                         st.markdown(f"**Imágenes del Contacto {i}**")
                         col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
@@ -415,6 +427,7 @@ def main():
                             "om1": om1,
                             "om2": om2,
                             "om3": om3,
+                            "om4": om4,
                             "descripcion": resumen_texto,
                             "img1": img1,
                             "img2": img2,
@@ -501,6 +514,7 @@ def main():
 **OM1:** {c_data.get("om1", "")}
 **OM2:** {c_data.get("om2", "")}
 **OM3:** {c_data.get("om3", "")}
+**OM4:** {c_data.get("om4", "")}
 **Descripción:** {c_data.get("descripcion", "")}"""
 
                         texto_contingencia += f"""

@@ -160,11 +160,11 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     """
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     if not api_key:
-        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "resumen": transcripcion[:100]}
+        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "om4": "No API Key", "resumen": transcripcion[:100]}
         
     modelo_seguro = obtener_modelo_valido(api_key.strip())
     if not modelo_seguro:
-        return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "resumen": transcripcion[:100]}
+        return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
         
     # Extraer las descripciones de las columnas requeridas (Col C para comunicacion, Col B para gestion)
     lista_comunicacion = []
@@ -191,9 +191,9 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     REGLAS ESTRICTAS PARA LAS OM:
     1. Identifica TODOS los errores que el agente haya cometido basados en las dos listas anteriores.
     2. Si encuentras un error grave que NO está en las listas, también puedes agregarlo como una OM general.
-    3. Asigna los errores encontrados a las claves 'om1', 'om2' y 'om3' por orden de importancia.
-    4. Tienes un máximo de 3 espacios (om1, om2, om3). Si hay menos de 3 errores encontrados, llena los espacios sobrantes con 'no aplica'. Si no hay NINGÚN error, las tres claves deben decir 'no aplica'.
-    """ if not es_bot else "El agente es un BOT. NO busques Oportunidades de Mejora (OM), asigna directamente 'no aplica' a las claves 'om1', 'om2' y 'om3'."
+    3. Asigna los errores encontrados a las claves 'om1', 'om2', 'om3' y 'om4' por orden de importancia.
+    4. DEBES intentar extraer entre 2 y 4 OMs (oportunidades de mejora) si aplican. Si hay menos de 4, llena los espacios sobrantes con 'no aplica'. Si la interacción fue excelente y no hay errores, pon 'no aplica' en todas.
+    """ if not es_bot else "El agente es un BOT. NO busques Oportunidades de Mejora (OM), asigna directamente 'no aplica' a las claves 'om1', 'om2', 'om3' y 'om4'."
             
     prompt = f"""
     Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
@@ -202,11 +202,15 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     {transcripcion}
     
     TAREAS:
-    1. Resume la interacción del chat de forma muy breve y profesional (1 a 3 líneas máximo). Asigna esto a la clave 'resumen'.
+    1. RESUMEN: Elabora un resumen conciso y corto, pero que contenga todo lo importante. DEBE incluir obligatoriamente:
+       - El motivo del contacto.
+       - Lo que dice el cliente (su problema o petición).
+       - Lo que dice(n) el/los agente(s), mencionándolos.
+       Asigna este resumen a la clave 'resumen'.
     2. Evaluación de Oportunidades de Mejora (OM):
     {instrucciones_om}
        
-    Devuelve ÚNICAMENTE un JSON válido con las claves "resumen", "om1", "om2" y "om3".
+    Devuelve ÚNICAMENTE un JSON válido con las claves "resumen", "om1", "om2", "om3" y "om4".
     """
     
     try:
@@ -222,13 +226,13 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
             if end != -1:
                 parsed_json = json.loads(raw_text[:end+1])
                 # Asegurar que todas las claves existan
-                for key in ["om1", "om2", "om3"]:
+                for key in ["om1", "om2", "om3", "om4"]:
                     if key not in parsed_json or not parsed_json[key]:
                         parsed_json[key] = "no aplica"
                 if "resumen" not in parsed_json:
                     parsed_json["resumen"] = "No se pudo resumir."
                 return parsed_json
                 
-        return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "resumen": transcripcion[:100]}
+        return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
     except Exception as e:
-        return {"om1": f"Error: {e}", "om2": "Error", "om3": "Error", "resumen": transcripcion[:100]}
+        return {"om1": f"Error: {e}", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}

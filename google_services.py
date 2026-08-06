@@ -202,17 +202,24 @@ def obtener_criterios_evaluacion():
         # ID de la hoja proporcionada
         doc = client.open_by_key("1dIHOqJS7su3rnBRFKP4RgxZkib77Uj6K8ZOtGIhAJfc")
         
-        try:
-            sheet_com = doc.worksheet("errores de comunicacion")
-            comunicacion = sheet_com.get_all_values()
-        except:
-            comunicacion = []
+        import unicodedata
+        comunicacion = []
+        gestion = []
+        
+        for w in doc.worksheets():
+            title_lower = w.title.strip().lower()
+            title_norm = unicodedata.normalize('NFD', title_lower).encode('ascii', 'ignore').decode('utf-8')
             
-        try:
-            sheet_ges = doc.worksheet("error de gestion")
-            gestion = sheet_ges.get_all_values()
-        except:
-            gestion = []
+            if "comunica" in title_norm:
+                try:
+                    comunicacion = w.get_all_values()
+                except Exception:
+                    pass
+            elif "gestion" in title_norm:
+                try:
+                    gestion = w.get_all_values()
+                except Exception:
+                    pass
             
         return comunicacion, gestion
     except Exception as e:
@@ -305,7 +312,20 @@ def registrar_en_sheet(datos, resolucion):
             resolucion
         ]
         
-        sheet.append_row(fila)
+        col_a_values = sheet.col_values(1)
+        next_row = len(col_a_values) + 1
+        for idx, val in enumerate(col_a_values):
+            if idx > 0 and not str(val).strip():
+                next_row = idx + 1
+                break
+                
+        rango = f"A{next_row}"
+        try:
+            sheet.update(range_name=rango, values=[fila])
+        except TypeError:
+            # Fallback para versiones antiguas de gspread
+            sheet.update(rango, [fila])
+            
         return True
     except Exception as e:
         import streamlit as st
@@ -381,9 +401,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 variables[f"{{{{OM1_{i}}}}}"] = c_data.get("om1", "")
                 variables[f"{{{{OM2_{i}}}}}"] = c_data.get("om2", "")
                 
-                # Manejar un pequeño error de tipeo en la plantilla del usuario para el 1er contacto (OM3_1_1 en vez de OM3_1)
                 variables[f"{{{{OM3_1_1}}}}"] = c_data.get("om3", "") if i == 1 else ""
                 variables[f"{{{{OM3_{i}}}}}"] = c_data.get("om3", "")
+                variables[f"{{{{OM4_{i}}}}}"] = c_data.get("om4", "")
                 
                 variables[f"{{{{DESCRIPCION_CONTACTO_{i}}}}}"] = c_data.get("descripcion", "")
                 
