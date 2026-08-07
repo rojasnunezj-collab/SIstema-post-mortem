@@ -139,6 +139,8 @@ def main():
                     red_social = st.text_input("RED SOCIAL", value=d.get("red_social", ""))
                 else:
                     red_social = "no corresponde"
+                    
+                numeros = st.text_input("NÚMEROS DE CONTACTO", value=d.get("numeros", ""))
 
             with col2:
                 correo = st.text_input("CORREO", value=d.get("correo", ""))
@@ -151,6 +153,8 @@ def main():
                     seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
                 else:
                     seguidores = "no corresponde"
+                    
+                contactos = st.text_input("CONTACTOS MENCIONADOS", value=d.get("contactos", ""))
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
             # Si el valor inicial no está en las opciones, dejamos el predeterminado
@@ -295,14 +299,14 @@ def main():
                     "propina": propina,
                     "compensacion": compensacion,
                     "total": total,
-                    "numeros": d.get("numeros", ""),
+                    "numeros": numeros,
                     "telefono": telefono,
                     "fraude_str": fraude,
                     "is_fraude": is_fraude,
                     "is_amenaza": is_amenaza,
                     "es_influencer": es_influencer,
                     "seguidores": seguidores,
-                    "contactos": d.get("contactos", ""),
+                    "contactos": contactos,
                     "limite": limite_pais,
                     "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE",
                     "user_email": st.session_state.get("user_email", "")
@@ -406,23 +410,26 @@ def main():
                             else:
                                 st.warning("Pega la transcripción para analizar.")
                         
-                        om_data = st.session_state.get(f"om_c{i}", {"om1": "", "om2": "", "om3": "", "om4": ""})
+                        om_data = st.session_state.get(f"om_c{i}", {})
                         
                         if f"resumen_c{i}" in st.session_state:
                             st.info("Resumen generado:")
                             resumen_texto = st.text_area("Texto resumido a inyectar", value=st.session_state[f"resumen_c{i}"], height=100, key=f"resumen_input_{i}")
                         else:
                             resumen_texto = transcripcion
+                            
+                        is_bot = "bot" in agente_c.lower()
+                        default_om = "no aplica" if is_bot else ""
                         
                         col_om1, col_om2, col_om3, col_om4 = st.columns(4)
                         with col_om1:
-                            om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1", ""), key=f"om1_c{i}")
+                            om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or default_om, key=f"om1_c{i}")
                         with col_om2:
-                            om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2", ""), key=f"om2_c{i}")
+                            om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or default_om, key=f"om2_c{i}")
                         with col_om3:
-                            om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3", ""), key=f"om3_c{i}")
+                            om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or default_om, key=f"om3_c{i}")
                         with col_om4:
-                            om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4", ""), key=f"om4_c{i}")
+                            om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or default_om, key=f"om4_c{i}")
                             
                         st.markdown(f"**Imágenes del Contacto {i}**")
                         col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)

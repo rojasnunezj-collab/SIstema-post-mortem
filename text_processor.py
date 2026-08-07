@@ -66,14 +66,14 @@ OBJETIVO:
 El texto resultante debe ser sumamente corporativo, analítico, profesional, y con ortografía perfecta. 
 
 REGLAS DE ESTILO (¡OBLIGATORIO!):
-1. Eres un formateador puro. NO agregues introducciones, NO expliques tus cambios, NO devuelvas markdown fuera del JSON.
+1. Eres un formateador puro. Tu única tarea es mejorar y reescribir los textos. NUNCA devuelvas el texto original sin cambios a menos que ya sea perfecto.
 2. NUNCA empieces los párrafos con frases repetitivas como "Tras revisar", "Al verificar", "Se procede a", o "Tras realizar la revisión". Usa variedad y ve directo al grano (ej: "Se identificó...", "El usuario indicó...", "El sistema muestra...").
 3. Evita redundancias. Si el texto original repite lo mismo, condénsalo en un texto claro y potente.
 4. Vocabulario Obligatorio: Usa "reintegro" o "reembolso", "cupo" o "voucher". Llama a la billetera virtual del cliente exactamente como: "{regla_wallet}". Alterna entre los términos "cliente" y "usuario" para enriquecer la lectura.
 5. NO inventes datos, fechas, motivos ni montos que no estén en el texto original.
 6. Mantén la objetividad absoluta: no uses lenguaje emocional ("lamentablemente", "desafortunadamente", "por suerte").
 
-TEXTOS A REESCRIBIR:
+TEXTOS A REESCRIBIR (MEJÓRALOS OBLIGATORIAMENTE):
 [Reporte]: {reporte_cliente}
 [Análisis]: {analisis_caso}
 [Resolución]: {resolucion_caso}
@@ -108,6 +108,8 @@ TEXTOS A REESCRIBIR:
                 if intento < 2:
                     time.sleep(2)
                     continue
+            st.warning("⚠️ La IA falló al mejorar el texto, se usarán los textos originales.")
             return reporte_cliente, analisis_caso, resolucion_caso # Fallback
             
+    st.warning("⚠️ La IA falló al mejorar el texto (límite de reintentos), se usarán los textos originales.")
     return reporte_cliente, analisis_caso, resolucion_caso

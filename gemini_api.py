@@ -202,10 +202,11 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     {transcripcion}
     
     TAREAS:
-    1. RESUMEN: Elabora un resumen conciso y corto, pero que contenga todo lo importante. DEBE incluir obligatoriamente:
-       - El motivo del contacto.
-       - Lo que dice el cliente (su problema o petición).
-       - Lo que dice(n) el/los agente(s), mencionándolos.
+    1. RESUMEN: Elabora un resumen extremadamente completo pero conciso. DEBE incluir OBLIGATORIAMENTE:
+       - El motivo EXACTO del contacto.
+       - TODO lo que dice el cliente (su problema o petición detallada, NO OBVIES NINGUNA INFORMACIÓN IMPORTANTE).
+       - TODO lo que dice(n) y responde(n) el/los agente(s), mencionándolos explícitamente.
+       Aunque debe ser directo al punto (conciso), NUNCA debe omitir detalles clave de la interacción.
        Asigna este resumen a la clave 'resumen'.
     2. Evaluación de Oportunidades de Mejora (OM):
     {instrucciones_om}
