@@ -281,11 +281,9 @@ def registrar_en_sheet(datos, resolucion):
             sheet = doc.worksheet("REGISTRO")
         except gspread.WorksheetNotFound:
             sheet = doc.sheet1
-        
         # Preparamos la fila a insertar
-        from datetime import datetime
-        import pytz
-        tz = pytz.timezone('America/Lima')
+        from datetime import datetime, timedelta, timezone
+        tz = timezone(timedelta(hours=-5)) # America/Lima
         fila = [
             datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S"),
             datos.get("numero_caso", ""),
@@ -351,8 +349,12 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         docs_service = build('docs', 'v1', credentials=creds)
         
         # 1. Copiar el documento plantilla a la carpeta destino
-        user_id = datos.get("user_id", "S_N")
-        title = f"Post mortem {user_id}"
+        order = str(datos.get('order_id', '')).strip()
+        user_val = str(datos.get('user_id', '')).strip()
+        id_final = order if order and order.lower() != 'revisar' and order.lower() != 'no tiene' else user_val
+        if not id_final or id_final.lower() == 'revisar': id_final = str(datos.get('caso', 'SinID')).strip()
+        
+        title = f"Post mortem {id_final}"
         folder_id = "16IaiuHgqtGu09T0MIC1TL9Zq0e-nsfAY"
         
         body = {
@@ -474,8 +476,12 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             extract_text_and_indices(doc_content.get('body', {}).get('content', []))
             
             delete_requests = []
-            # Solo empezamos desde el 2, porque el 1 no tiene etiqueta START y siempre se asume usado
-            for i in range(len(datos_contactos) + 1, MAX_CONTACTS + 1):
+            # Empezamos desde el bloque que no se va a usar (puede ser desde el 1)
+            start_idx_delete = max(1, len(datos_contactos) + 1)
+            if len(datos_contactos) == 0:
+                start_idx_delete = 1
+                
+            for i in range(start_idx_delete, MAX_CONTACTS + 1):
                 start_tag = f"<<START_{i}>>"
                 end_tag = f"<<END_{i}>>"
                 
