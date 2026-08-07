@@ -284,8 +284,10 @@ def registrar_en_sheet(datos, resolucion):
         
         # Preparamos la fila a insertar
         from datetime import datetime
+        import pytz
+        tz = pytz.timezone('America/Lima')
         fila = [
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S"),
             datos.get("numero_caso", ""),
             datos.get("hora", ""),
             datos.get("fin_accion", ""),
@@ -521,7 +523,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                     try:
                         # 4.1 Subir a Drive
                         file_metadata = {
-                            'name': f"Postmortem_IMG_{var_key}_{user_id}",
+                            'name': f"Postmortem_IMG_{var_key}_{id_final}",
                             'parents': ["1n0J019rRNm3vg5xABuia-7Qje__qBG8i"]
                         }
                         file_stream = io.BytesIO(img_file.getvalue())

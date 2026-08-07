@@ -154,7 +154,13 @@ def main():
                 else:
                     seguidores = "no corresponde"
                     
-                contactos = st.text_input("CONTACTOS MENCIONADOS", value=d.get("contactos", ""))
+                contactos_iniciales = d.get("contactos", "")
+                num_agentes = st.number_input("CANTIDAD DE AGENTES INVOLUCRADOS", min_value=1, max_value=10, value=1)
+                nombres_agentes = []
+                for i in range(int(num_agentes)):
+                    val = contactos_iniciales if i == 0 else ""
+                    nombres_agentes.append(st.text_input(f"Agente {i+1}", value=val, key=f"agente_inv_{i}"))
+                contactos = ", ".join([a for a in nombres_agentes if a.strip()])
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
             # Si el valor inicial no está en las opciones, dejamos el predeterminado
@@ -318,7 +324,9 @@ def main():
                     with st.spinner("Mejorando redacción del borrador..."):
                         from text_processor import mejorar_redaccion
                         if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
-                            rep_limpio, ana_limpio, res_limpia = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                            rep_limpio, ana_limpio, res_limpia, warning_msg = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                            if warning_msg:
+                                st.session_state["warning_mejora"] = warning_msg
                         else:
                             rep_limpio, ana_limpio, res_limpia = "", "", ""
                         st.session_state["textos_mejorados"] = (rep_limpio, ana_limpio, res_limpia)
@@ -333,6 +341,9 @@ def main():
             
             if "Postmortem Completo" in tipo:
                 st.subheader("Revisión Final de Textos")
+                if "warning_mejora" in st.session_state:
+                    st.warning(st.session_state["warning_mejora"])
+                    
                 rep_limpio, ana_limpio, res_limpia = st.session_state.get("textos_mejorados", ("", "", ""))
                 rep_final = st.text_area("1. Reporte (Editado):", value=rep_limpio, height=150)
                 ana_final = st.text_area("2. Análisis (Editado):", value=ana_limpio, height=150)
@@ -354,6 +365,13 @@ def main():
                 with col_d1: img_devo = st.file_uploader("Imagen Devolución", type=['png', 'jpg', 'jpeg'])
                 with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
                 with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
+                
+                st.markdown("**Imágenes Adicionales (Se reemplazarán los tags {{EXTRA_1}}, {{EXTRA_2}} y {{EXTRA_3}})**")
+                col_e1, col_e2, col_e3 = st.columns(3)
+                with col_e1: extra_1 = st.file_uploader("Extra 1", type=['png', 'jpg', 'jpeg'])
+                with col_e2: extra_2 = st.file_uploader("Extra 2", type=['png', 'jpg', 'jpeg'])
+                with col_e3: extra_3 = st.file_uploader("Extra 3", type=['png', 'jpg', 'jpeg'])
+                
                 if dfin.get("is_amenaza"):
                     st.markdown("**Imagen de Amenaza (Opcional)**")
                     form_amenaza = st.file_uploader("Formulario Amenaza de Denuncia", type=['png', 'jpg', 'jpeg'])
@@ -439,14 +457,14 @@ def main():
                         img4 = col_img_c4.file_uploader(f"Imagen 4 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img4_c{i}")
                         
                         contacto = {
-                            "fecha": fecha_c,
+                            "fecha": fecha_c.replace('.', '/'),
                             "agente": agente_c,
                             "area": area_c,
                             "link": link_c,
-                            "om1": om1,
-                            "om2": om2,
-                            "om3": om3,
-                            "om4": om4,
+                            "om1": om1.strip() if om1.strip() else "no aplica",
+                            "om2": om2.strip() if om2.strip() else "no aplica",
+                            "om3": om3.strip() if om3.strip() else "no aplica",
+                            "om4": om4.strip() if om4.strip() else "no aplica",
                             "descripcion": resumen_texto,
                             "img1": img1,
                             "img2": img2,
@@ -464,7 +482,10 @@ def main():
                     "{{FORM_DEVO}}": form_devo,
                     "{{FORM_AMENAZA}}": form_amenaza,
                     "{{FORM_WL}}": form_wl,
-                    "{{FORM_GESTION}}": form_gestion
+                    "{{FORM_GESTION}}": form_gestion,
+                    "{{EXTRA_1}}": extra_1,
+                    "{{EXTRA_2}}": extra_2,
+                    "{{EXTRA_3}}": extra_3
                 }
                 
                 # Inyectar las imágenes de los contactos
@@ -575,13 +596,13 @@ def mostrar_listas(dfin):
     st.subheader("📋 Datos para Formularios Internos")
     
     st.markdown("### Gestión Diaria")
-    c1, c2, c3 = st.columns(3)
-    c2.markdown("**CASO**")
-    c2.code(dfin['caso'], language="text")
-    c3.markdown("**USER ID**")
-    c3.code(dfin.get('user_id', ''), language="text")
+    c1, c2 = st.columns(2)
+    c1.markdown("**CASO**")
+    c1.code(dfin['caso'], language="text")
+    c2.markdown("**USER ID**")
+    c2.code(dfin.get('user_id', ''), language="text")
     
-    c4, c5, c6 = st.columns(3)
+    c4, c5 = st.columns(2)
     c4.markdown("**HORA INGRESO SLACK**")
     c4.code(dfin['hora'], language="text")
     c5.markdown("**TERMINO DE ACCION**")

@@ -37,25 +37,25 @@ def obtener_modelo_valido(api_key):
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
     Reescribe las 3 secciones utilizando una única llamada con JSON Schema forzado.
-    Retorna una tupla de 3 strings: (reporte, analisis, resolucion).
+    Retorna una tupla de 4 strings: (reporte, analisis, resolucion, warning_msg).
     """
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     
     if not api_key:
         st.error("❌ No se encontró la API Key de Gemini.")
-        return reporte_cliente, analisis_caso, resolucion_caso
+        return reporte_cliente, analisis_caso, resolucion_caso, "API Key no encontrada."
         
     try:
         genai.configure(api_key=api_key.strip())
     except Exception as e:
         st.error(f"❌ Error API: {e}")
-        return reporte_cliente, analisis_caso, resolucion_caso
+        return reporte_cliente, analisis_caso, resolucion_caso, str(e)
         
     modelo_seguro = obtener_modelo_valido(api_key.strip())
     
     if not modelo_seguro:
         st.error("❌ Ningún modelo en tu API Key funcionó.")
-        return reporte_cliente, analisis_caso, resolucion_caso
+        return reporte_cliente, analisis_caso, resolucion_caso, "Error validando el modelo."
         
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
     
@@ -102,14 +102,15 @@ TEXTOS A REESCRIBIR (MEJÓRALOS OBLIGATORIAMENTE):
             )
             
             datos = json.loads(response.text)
-            return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", "")
+            # Validar que realmente haya hecho cambios y no haya devuelto los originales o un JSON vacío
+            if not datos.get("reporte_editado"):
+                return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
+            return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", ""), None
         except Exception as sub_e:
             if "500" in str(sub_e) or "429" in str(sub_e):
                 if intento < 2:
                     time.sleep(2)
                     continue
-            st.warning("⚠️ La IA falló al mejorar el texto, se usarán los textos originales.")
-            return reporte_cliente, analisis_caso, resolucion_caso # Fallback
+            return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ La IA falló al mejorar el texto, se usarán los originales." # Fallback
             
-    st.warning("⚠️ La IA falló al mejorar el texto (límite de reintentos), se usarán los textos originales.")
-    return reporte_cliente, analisis_caso, resolucion_caso
+    return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ La IA falló al mejorar el texto (límite de reintentos)."
