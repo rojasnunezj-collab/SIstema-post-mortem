@@ -154,13 +154,7 @@ def main():
                 else:
                     seguidores = "no corresponde"
                     
-                contactos_iniciales = d.get("contactos", "")
-                num_agentes = st.number_input("CANTIDAD DE AGENTES INVOLUCRADOS", min_value=1, max_value=10, value=1)
-                nombres_agentes = []
-                for i in range(int(num_agentes)):
-                    val = contactos_iniciales if i == 0 else ""
-                    nombres_agentes.append(st.text_input(f"Agente {i+1}", value=val, key=f"agente_inv_{i}"))
-                contactos = ", ".join([a for a in nombres_agentes if a.strip()])
+                contactos = st.text_input("CONTACTOS EXTRAÍDOS", value=d.get("contactos", ""))
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
             # Si el valor inicial no está en las opciones, dejamos el predeterminado
@@ -324,7 +318,13 @@ def main():
                     with st.spinner("Mejorando redacción del borrador..."):
                         from text_processor import mejorar_redaccion
                         if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
-                            rep_limpio, ana_limpio, res_limpia, warning_msg = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                            resultado_mejora = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                            if len(resultado_mejora) == 4:
+                                rep_limpio, ana_limpio, res_limpia, warning_msg = resultado_mejora
+                            else:
+                                rep_limpio, ana_limpio, res_limpia = resultado_mejora[:3]
+                                warning_msg = None
+                                
                             if warning_msg:
                                 st.session_state["warning_mejora"] = warning_msg
                         else:
@@ -397,23 +397,36 @@ def main():
                 
                 datos_contactos = []
                 if incluir_contactos:
-                    cantidad_contactos = st.number_input("Cantidad de agentes / contactos", min_value=0, max_value=7, value=1)
+                    cantidad_contactos = st.number_input("CANTIDAD DE AGENTES INVOLUCRADOS", min_value=0, max_value=10, value=1)
                     
+                    nombres_agentes = []
+                    if cantidad_contactos > 0:
+                        st.markdown("**Nombres de los Agentes:**")
+                        contactos_iniciales = dfin.get("contactos", "")
+                        for i in range(int(cantidad_contactos)):
+                            val = contactos_iniciales if i == 0 else ""
+                            nombres_agentes.append(st.text_input(f"Agente {i+1}", value=val, key=f"agente_inv_s2_{i}"))
+                        
+                        contactos_finales = ", ".join([a for a in nombres_agentes if a.strip()])
+                        dfin["contactos"] = contactos_finales # Actualiza en vivo para el documento
+                        st.session_state["datos_finales"]["contactos"] = contactos_finales
+                        
                     from google_services import obtener_criterios_evaluacion
-                from gemini_api import evaluar_interaccion_gemini
-                
-                comunicacion_data, gestion_data = obtener_criterios_evaluacion()
-                datos_contactos = []
-                
-                for i in range(1, int(cantidad_contactos) + 1):
-                    with st.expander(f"Contacto #{i}", expanded=True):
-                        col_c1, col_c2 = st.columns(2)
-                        with col_c1:
-                            fecha_c = st.text_input(f"Fecha y hora (C{i})", key=f"fecha_c{i}")
-                            agente_c = st.text_input(f"Agente (C{i})", key=f"agente_c{i}")
-                        with col_c2:
-                            area_c = st.text_input(f"Área (C{i})", key=f"area_c{i}")
-                            link_c = st.text_input(f"Link HeroCare (C{i})", key=f"link_c{i}")
+                    from gemini_api import evaluar_interaccion_gemini
+                    
+                    comunicacion_data, gestion_data = obtener_criterios_evaluacion()
+                    datos_contactos = []
+                    
+                    for i in range(1, int(cantidad_contactos) + 1):
+                        nombre_agente_actual = nombres_agentes[i-1] if len(nombres_agentes) >= i else ""
+                        with st.expander(f"Contacto #{i} ({nombre_agente_actual if nombre_agente_actual.strip() else 'Agente ' + str(i)})", expanded=True):
+                            col_c1, col_c2 = st.columns(2)
+                            with col_c1:
+                                fecha_c = st.text_input(f"Fecha y hora (C{i})", key=f"fecha_c{i}")
+                                agente_c = st.text_input(f"Agente (C{i})", value=nombre_agente_actual, key=f"agente_c{i}")
+                            with col_c2:
+                                area_c = st.text_input(f"Área (C{i})", key=f"area_c{i}")
+                                link_c = st.text_input(f"Link HeroCare (C{i})", key=f"link_c{i}")
                             
                         transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
                         
