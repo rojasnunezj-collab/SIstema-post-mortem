@@ -507,7 +507,6 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                     body={'requests': delete_requests}
                 ).execute()
         except Exception as e:
-            import streamlit as st
             st.warning(f"Error al borrar bloques sobrantes de contactos: {e}. El documento se generó, pero puede contener texto extra.")
             
         # 4. Procesar IMÁGENES

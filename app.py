@@ -366,7 +366,7 @@ def main():
                 with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
                 with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
                 
-                st.markdown("**Imágenes Adicionales (Se reemplazarán los tags {{EXTRA_1}}, {{EXTRA_2}} y {{EXTRA_3}})**")
+                st.markdown("**Imágenes Adicionales**")
                 col_e1, col_e2, col_e3 = st.columns(3)
                 with col_e1: extra_1 = st.file_uploader("Extra 1", type=['png', 'jpg', 'jpeg'])
                 with col_e2: extra_2 = st.file_uploader("Extra 2", type=['png', 'jpg', 'jpeg'])
