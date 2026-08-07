@@ -154,7 +154,7 @@ def main():
                 else:
                     seguidores = "no corresponde"
                     
-                contactos = st.text_input("CONTACTOS EXTRAÍDOS", value=d.get("contactos", ""))
+                contactos = d.get("contactos", "")
             
             fraude_init = f"{d.get('fraude_operacional', '')} {d.get('fraude_fintech', '')}".strip()
             # Si el valor inicial no está en las opciones, dejamos el predeterminado
@@ -397,7 +397,7 @@ def main():
                 
                 datos_contactos = []
                 if incluir_contactos:
-                    cantidad_contactos = st.number_input("CANTIDAD DE AGENTES INVOLUCRADOS", min_value=0, max_value=10, value=1)
+                    cantidad_contactos = st.number_input("NÚMERO DE CONTACTOS", min_value=0, max_value=10, value=1)
                     
                     nombres_agentes = []
                     if cantidad_contactos > 0:
