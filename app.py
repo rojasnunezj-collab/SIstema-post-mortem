@@ -256,8 +256,48 @@ def main():
                 st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
             
             st.divider()
+            st.markdown("**3. Resolución del caso (Métodos y Fechas):**")
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
+            with col_d2:
+                f_dev = None
+                if op_dev in ["Cupón", "Wallet"]:
+                    f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY")
+                    
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
+            with col_c2:
+                f_comp = None
+                if op_comp in ["Cupón", "Wallet"]:
+                    f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY")
+                    
+            opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
+            otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
+            
+            # Armar los textos finales
+            def armar_texto(monto, opcion, fecha):
+                if opcion == "Ninguna" or monto == 0:
+                    return f"${monto}"
+                if opcion in ["Tarjeta de débito", "Tarjeta de crédito"]:
+                    return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
+                elif opcion in ["Cupón", "Wallet"]:
+                    fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
+                    return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
+                return f"${monto}"
+                
+            devolucion_str = armar_texto(devolucion, op_dev, f_dev)
+            compensacion_str = armar_texto(compensacion, op_comp, f_comp)
+            otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+            
+            st.divider()
             st.markdown("### Formularios Adicionales")
-            is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
+            
+            fraude_str_lower = fraude.lower()
+            is_fraude_default = "cliente fraude" in fraude_str_lower or "falso positivo" in fraude_str_lower
+            is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=is_fraude_default)
+            
             is_guru = st.checkbox("Llenado manual Gurú", value=False)
             contacto_guru = ""
             if is_guru:
@@ -279,41 +319,7 @@ def main():
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
                 reporte_cliente = st.text_area("1. El cliente / líder reporta:", height=80, placeholder="Escribe aquí lo que reporta el cliente...")
                 analisis_caso = st.text_area("2. Análisis del caso que se hizo:", height=80, placeholder="Escribe aquí tu análisis del caso...")
-                
-                st.markdown("**3. Resolución del caso:**")
-                col_d1, col_d2 = st.columns(2)
-                with col_d1:
-                    op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
-                with col_d2:
-                    f_dev = None
-                    if op_dev in ["Cupón", "Wallet"]:
-                        f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY")
-                        
-                col_c1, col_c2 = st.columns(2)
-                with col_c1:
-                    op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
-                with col_c2:
-                    f_comp = None
-                    if op_comp in ["Cupón", "Wallet"]:
-                        f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY")
-                        
-                opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
-                otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
-                
-                # Armar los textos finales
-                def armar_texto(monto, opcion, fecha):
-                    if opcion == "Ninguna" or monto == 0:
-                        return f"${monto}"
-                    if opcion in ["Tarjeta de débito", "Tarjeta de crédito"]:
-                        return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
-                    elif opcion in ["Cupón", "Wallet"]:
-                        fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
-                        return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
-                    return f"${monto}"
-                    
-                devolucion_str = armar_texto(devolucion, op_dev, f_dev)
-                compensacion_str = armar_texto(compensacion, op_comp, f_comp)
-                otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+                resolucion_caso = st.text_area("3. Resolución del caso (Explicación adicional):", height=80, placeholder="Escribe aquí cómo se resolvió de forma narrativa...")
                 
                 label_btn = "Mejorar Textos y Continuar"
             else:
