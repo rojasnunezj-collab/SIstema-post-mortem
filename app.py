@@ -105,11 +105,13 @@ def main():
                             # Pasamos el tiempo deducido directamente al fin de acción
                             datos["fin_accion"] = datos.get("ultima_interaccion", "")
                             st.session_state["datos_extraidos"] = datos
+                            st.session_state["modo_manual"] = False
                             st.success("✅ ¡Datos extraídos con éxito!")
                         
         with col_btn2:
             if st.button("Llenado Manual (Post de Guru)", type="secondary", use_container_width=True):
                 st.session_state["datos_extraidos"] = {}
+                st.session_state["modo_manual"] = True
                 st.success("📝 Modo manual activado. Puedes llenar los campos a continuación.")
         
         if "datos_extraidos" in st.session_state:
@@ -257,21 +259,25 @@ def main():
             
             st.divider()
             st.markdown("**3. Resolución del caso (Métodos y Fechas):**")
+            
+            from datetime import datetime, timedelta
+            default_date = datetime.today() + timedelta(days=30)
+            
             col_d1, col_d2 = st.columns(2)
             with col_d1:
                 op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
             with col_d2:
                 f_dev = None
                 if op_dev in ["Cupón", "Wallet"]:
-                    f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY")
+                    f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY", value=default_date)
                     
             col_c1, col_c2 = st.columns(2)
             with col_c1:
-                op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
+                op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Cupón", "Wallet"])
             with col_c2:
                 f_comp = None
                 if op_comp in ["Cupón", "Wallet"]:
-                    f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY")
+                    f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY", value=default_date)
                     
             opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
             otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
@@ -291,16 +297,13 @@ def main():
             compensacion_str = armar_texto(compensacion, op_comp, f_comp)
             otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
             
-            st.divider()
-            st.markdown("### Formularios Adicionales")
-            
             fraude_str_lower = fraude.lower()
-            is_fraude_default = "cliente fraude" in fraude_str_lower or "falso positivo" in fraude_str_lower
-            is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=is_fraude_default)
+            is_fraude = "cliente fraude" in fraude_str_lower or "falso positivo" in fraude_str_lower
             
-            is_guru = st.checkbox("Llenado manual Gurú", value=False)
             contacto_guru = ""
-            if is_guru:
+            if st.session_state.get("modo_manual", False):
+                st.divider()
+                st.markdown("### Llenado Manual Gurú")
                 contacto_guru = st.text_area("Detalle de contacto Gurú", placeholder="Escribe aquí el detalle de gurú...", height=80)
                 
             caso_str = str(caso).strip().lower()
