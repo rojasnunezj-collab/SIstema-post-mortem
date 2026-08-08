@@ -377,8 +377,10 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
-            "{{DEVOLUCION}}": datos.get("devolucion_str", f"${datos.get('monto_devolucion', 0)}"),
-            "{{COMPENSACION_FINAL}}": datos.get("compensacion_str", f"${datos.get('compensacion', 0)}"),
+            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
+            "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
+            "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
+            "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
             "{{OTRAS_GESTIONES}}": datos.get("otras_gestiones", ""),
             "{{ORDER_ID}}": datos.get("order_id", ""),
             "{{USER_ID}}": datos.get("user_id", ""),
@@ -403,10 +405,8 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 c_data = datos_contactos[i - 1]
                 variables[f"{{{{NUMERO_CONTACTOS_{i}}}}}"] = str(i)
                 variables[f"{{{{FECHA_CONTACTO_{i}}}}}"] = c_data.get("fecha", "")
-                variables[f"{{{{AGENTE1_{i}}}}}"] = c_data.get("agente", "")
-                variables[f"{{{{AREA_{i}}}}}"] = c_data.get("area", "")
+                variables[f"{{{{AGENTES_INFO_{i}}}}}"] = c_data.get("agentes_info", "")
                 variables[f"{{{{LINK_HERO_{i}}}}}"] = c_data.get("link", "")
-                variables[f"{{{{SOP_{i}}}}}"] = c_data.get("sop", "")
                 variables[f"{{{{OM1_{i}}}}}"] = c_data.get("om1", "")
                 variables[f"{{{{OM2_{i}}}}}"] = c_data.get("om2", "")
                 
@@ -435,14 +435,28 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 }
             })
             
-        # Si no se subió imagen, borramos la variable de la plantilla
+        # Preparar tags de imágenes
+        # Hack para Google Docs: Si un tag de imagen como {{EXTRA_1}} se dividió en múltiples textRuns por formato, 
+        # find() manual fallará. Para evitarlo, usamos la API nativa de replaceAllText para normalizar los tags a @@EXTRA_1@@.
+        image_search_tags = {}
         if imagenes_docs:
             for var_key, img_file in imagenes_docs.items():
                 if not img_file:
+                    # Si no hay imagen, simplemente borramos el tag original
                     requests.append({
                         'replaceAllText': {
                             'containsText': {'text': var_key, 'matchCase': True},
                             'replaceText': ''
+                        }
+                    })
+                else:
+                    # Si HAY imagen, normalizamos el tag en el documento para buscarlo luego sin cortes
+                    clean_tag = var_key.replace("{", "@").replace("}", "@")
+                    image_search_tags[var_key] = clean_tag
+                    requests.append({
+                        'replaceAllText': {
+                            'containsText': {'text': var_key, 'matchCase': True},
+                            'replaceText': clean_tag
                         }
                     })
                     
@@ -552,6 +566,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                         # 4.2 Localizar la variable en Docs usando una búsqueda fresca por cada imagen
                         start, end = None, None
                         
+                        search_target = image_search_tags.get(var_key, var_key)
                         def find_image_placeholder(content):
                             nonlocal start, end
                             for element in content:
@@ -559,10 +574,10 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                                     for p_elem in element['paragraph'].get('elements', []):
                                         if 'textRun' in p_elem:
                                             texto_p = p_elem['textRun'].get('content', '')
-                                            idx = texto_p.find(var_key)
+                                            idx = texto_p.find(search_target)
                                             if idx != -1:
                                                 start = p_elem['startIndex'] + idx
-                                                end = start + len(var_key)
+                                                end = start + len(search_target)
                                                 return True
                                 elif 'table' in element:
                                     for row in element['table'].get('tableRows', []):

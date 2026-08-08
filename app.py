@@ -449,96 +449,114 @@ def main():
                 
                 datos_contactos = []
                 if incluir_contactos:
-                    cantidad_contactos = st.number_input("NÚMERO DE CONTACTOS", min_value=0, max_value=10, value=1)
+                    try:
+                        def_contactos = int(str(dfin.get("numeros", "1")).strip())
+                    except ValueError:
+                        def_contactos = 1
+                        
+                    cantidad_contactos = st.number_input("NÚMERO DE CONTACTOS", min_value=0, max_value=10, value=def_contactos)
                     
-                    nombres_agentes = []
-                    if cantidad_contactos > 0:
-                        st.markdown("**Nombres de los Agentes:**")
-                        contactos_iniciales = dfin.get("contactos", "")
-                        for i in range(int(cantidad_contactos)):
-                            val = contactos_iniciales if i == 0 else ""
-                            nombres_agentes.append(st.text_input(f"Agente {i+1}", value=val, key=f"agente_inv_s2_{i}"))
-                        
-                        contactos_finales = ", ".join([a for a in nombres_agentes if a.strip()])
-                        dfin["contactos"] = contactos_finales # Actualiza en vivo para el documento
-                        st.session_state["datos_finales"]["contactos"] = contactos_finales
-                        
                     from google_services import obtener_criterios_evaluacion
                     from gemini_api import evaluar_interaccion_gemini
                     
                     comunicacion_data, gestion_data = obtener_criterios_evaluacion()
-                    datos_contactos = []
                     
                     for i in range(1, int(cantidad_contactos) + 1):
-                        nombre_agente_actual = nombres_agentes[i-1] if len(nombres_agentes) >= i else ""
-                        with st.expander(f"Contacto #{i} ({nombre_agente_actual if nombre_agente_actual.strip() else 'Agente ' + str(i)})", expanded=True):
-                            col_c1, col_c2 = st.columns(2)
-                            with col_c1:
+                        with st.expander(f"Contacto #{i}", expanded=True):
+                            st.markdown("**Datos Generales de Interacción**")
+                            col_c3, col_c4 = st.columns(2)
+                            with col_c3:
                                 fecha_c = st.text_input(f"Fecha y hora (C{i})", key=f"fecha_c{i}")
-                                agente_c = st.text_input(f"Agente (C{i})", value=nombre_agente_actual, key=f"agente_c{i}")
-                            with col_c2:
-                                area_c = st.text_input(f"Área (C{i})", key=f"area_c{i}")
+                            with col_c4:
                                 link_c = st.text_input(f"Link HeroCare (C{i})", key=f"link_c{i}")
-                                sop_c = st.radio(f"SOP (C{i})", ["Siguió SOP", "No siguió SOP"], key=f"sop_c{i}", horizontal=True)
                             
-                        transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
-                        
-                        if st.button(f"Analizar Interacción C{i}", key=f"btn_analizar_c{i}"):
-                            if transcripcion:
-                                with st.spinner("Analizando con Gemini..."):
-                                    resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agente_c)
-                                    st.session_state[f"om_c{i}"] = resultado
-                                    if "resumen" in resultado:
-                                        # We put the summary into a display text area since we can't easily overwrite the input's state if it's already rendered
-                                        st.session_state[f"resumen_c{i}"] = resultado["resumen"]
+                            st.markdown("**Agentes Involucrados en este Contacto**")
+                            num_agentes_key = f"num_ag_c{i}"
+                            if num_agentes_key not in st.session_state:
+                                st.session_state[num_agentes_key] = 1
+                                
+                            agentes_list = []
+                            for j in range(st.session_state[num_agentes_key]):
+                                col_c1, col_c2, col_c3 = st.columns([2, 1, 1])
+                                with col_c1:
+                                    agente_c = st.text_input(f"Agente {j+1}", key=f"agente_c{i}_{j}")
+                                with col_c2:
+                                    area_c = st.text_input(f"Área", key=f"area_c{i}_{j}")
+                                with col_c3:
+                                    sop_c = st.radio(f"SOP", ["Siguió SOP", "No siguió SOP"], key=f"sop_c{i}_{j}", horizontal=True, label_visibility="collapsed")
+                                
+                                agentes_list.append({"agente": agente_c, "area": area_c, "sop": sop_c})
+                                
+                            if st.button(f"➕ Añadir otro Agente al Contacto {i}", key=f"add_ag_{i}"):
+                                st.session_state[num_agentes_key] += 1
+                                st.rerun()
+                                
+                            # Armar string de agentes combinados para la variable
+                            agentes_str_parts = []
+                            for ag in agentes_list:
+                                nombre = ag["agente"].strip() if ag["agente"].strip() else "Desconocido"
+                                area = ag["area"].strip() if ag["area"].strip() else "Sin área"
+                                sop = ag["sop"]
+                                agentes_str_parts.append(f"{nombre} - {area} - {sop}")
+                            agentes_info = ", ".join(agentes_str_parts)
+                            
+                            st.markdown("**Análisis y Transcripción**")
+                            transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
+                            
+                            if st.button(f"Analizar Interacción C{i}", key=f"btn_analizar_c{i}"):
+                                if transcripcion:
+                                    with st.spinner("Analizando con Gemini..."):
+                                        # Le pasamos todos los agentes para que los evalúe
+                                        resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agentes_info)
+                                        st.session_state[f"om_c{i}"] = resultado
+                                        if "resumen" in resultado:
+                                            st.session_state[f"resumen_c{i}"] = resultado["resumen"]
+                                else:
+                                    st.warning("Pega la transcripción para analizar.")
+                            
+                            om_data = st.session_state.get(f"om_c{i}", {})
+                            
+                            if f"resumen_c{i}" in st.session_state:
+                                st.info("Resumen generado:")
+                                resumen_texto = st.text_area("Texto resumido a inyectar", value=st.session_state[f"resumen_c{i}"], height=100, key=f"resumen_input_{i}")
                             else:
-                                st.warning("Pega la transcripción para analizar.")
-                        
-                        om_data = st.session_state.get(f"om_c{i}", {})
-                        
-                        if f"resumen_c{i}" in st.session_state:
-                            st.info("Resumen generado:")
-                            resumen_texto = st.text_area("Texto resumido a inyectar", value=st.session_state[f"resumen_c{i}"], height=100, key=f"resumen_input_{i}")
-                        else:
-                            resumen_texto = transcripcion
+                                resumen_texto = transcripcion
+                                
+                            is_bot = "bot" in agentes_info.lower()
+                            default_om = "no aplica" if is_bot else ""
                             
-                        is_bot = "bot" in agente_c.lower()
-                        default_om = "no aplica" if is_bot else ""
-                        
-                        col_om1, col_om2, col_om3, col_om4 = st.columns(4)
-                        with col_om1:
-                            om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or default_om, key=f"om1_c{i}")
-                        with col_om2:
-                            om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or default_om, key=f"om2_c{i}")
-                        with col_om3:
-                            om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or default_om, key=f"om3_c{i}")
-                        with col_om4:
-                            om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or default_om, key=f"om4_c{i}")
+                            col_om1, col_om2, col_om3, col_om4 = st.columns(4)
+                            with col_om1:
+                                om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or default_om, key=f"om1_c{i}")
+                            with col_om2:
+                                om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or default_om, key=f"om2_c{i}")
+                            with col_om3:
+                                om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or default_om, key=f"om3_c{i}")
+                            with col_om4:
+                                om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or default_om, key=f"om4_c{i}")
+                                
+                            st.markdown(f"**Imágenes del Contacto {i}**")
+                            col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
+                            img1 = col_img_c1.file_uploader(f"Imagen 1 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img1_c{i}")
+                            img2 = col_img_c2.file_uploader(f"Imagen 2 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img2_c{i}")
+                            img3 = col_img_c3.file_uploader(f"Imagen 3 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img3_c{i}")
+                            img4 = col_img_c4.file_uploader(f"Imagen 4 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img4_c{i}")
                             
-                        st.markdown(f"**Imágenes del Contacto {i}**")
-                        col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
-                        img1 = col_img_c1.file_uploader(f"Imagen 1 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img1_c{i}")
-                        img2 = col_img_c2.file_uploader(f"Imagen 2 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img2_c{i}")
-                        img3 = col_img_c3.file_uploader(f"Imagen 3 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img3_c{i}")
-                        img4 = col_img_c4.file_uploader(f"Imagen 4 (C{i})", type=['png', 'jpg', 'jpeg'], key=f"img4_c{i}")
-                        
-                        contacto = {
-                            "fecha": fecha_c.replace('.', '/'),
-                            "agente": agente_c,
-                            "area": area_c,
-                            "link": link_c,
-                            "om1": om1.strip() if om1.strip() else "no aplica",
-                            "om2": om2.strip() if om2.strip() else "no aplica",
-                            "om3": om3.strip() if om3.strip() else "no aplica",
-                            "om4": om4.strip() if om4.strip() else "no aplica",
-                            "sop": sop_c,
-                            "descripcion": resumen_texto,
-                            "img1": img1,
-                            "img2": img2,
-                            "img3": img3,
-                            "img4": img4
-                        }
-                        datos_contactos.append(contacto)
+                            contacto = {
+                                "fecha": fecha_c.replace('.', '/'),
+                                "agentes_info": agentes_info,
+                                "link": link_c,
+                                "om1": om1.strip() if om1.strip() else "no aplica",
+                                "om2": om2.strip() if om2.strip() else "no aplica",
+                                "om3": om3.strip() if om3.strip() else "no aplica",
+                                "om4": om4.strip() if om4.strip() else "no aplica",
+                                "descripcion": resumen_texto,
+                                "img1": img1,
+                                "img2": img2,
+                                "img3": img3,
+                                "img4": img4
+                            }
+                            datos_contactos.append(contacto)
                         
                 st.session_state["datos_finales"]["cantidad_contactos"] = cantidad_contactos if incluir_contactos else 0
                 st.session_state["datos_finales"]["con_sin"] = "Contactos" if incluir_contactos and cantidad_contactos > 0 else "Sin contactos"
