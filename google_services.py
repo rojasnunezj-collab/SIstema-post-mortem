@@ -377,8 +377,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
-            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
-            "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
+            "{{DEVOLUCION}}": datos.get("devolucion_str", f"${datos.get('monto_devolucion', 0)}"),
+            "{{COMPENSACION_FINAL}}": datos.get("compensacion_str", f"${datos.get('compensacion', 0)}"),
+            "{{OTRAS_GESTIONES}}": datos.get("otras_gestiones", ""),
             "{{ORDER_ID}}": datos.get("order_id", ""),
             "{{USER_ID}}": datos.get("user_id", ""),
             "{{CORREO}}": datos.get("correo", ""),
@@ -388,7 +389,10 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{ANALISIS}}": ana_limpio,
             "{{SOLUCION}}": res_limpia,
             "{{CLIENTE_FRAUDE}}": datos.get("fraude_str", ""),
-            "{{NUMERO}}": datos.get("telefono", "")
+            "{{NUMERO}}": datos.get("telefono", ""),
+            "{{CANTIDAD_CONTACTOS}}": str(datos.get("cantidad_contactos", "")),
+            "{{CON_SIN}}": datos.get("con_sin", ""),
+            "{{CONTACTO_GURU}}": datos.get("contacto_guru", "")
         }
         
         # 2.1 Preparar reemplazos para los bloques de contactos
@@ -402,6 +406,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 variables[f"{{{{AGENTE1_{i}}}}}"] = c_data.get("agente", "")
                 variables[f"{{{{AREA_{i}}}}}"] = c_data.get("area", "")
                 variables[f"{{{{LINK_HERO_{i}}}}}"] = c_data.get("link", "")
+                variables[f"{{{{SOP_{i}}}}}"] = c_data.get("sop", "")
                 variables[f"{{{{OM1_{i}}}}}"] = c_data.get("om1", "")
                 variables[f"{{{{OM2_{i}}}}}"] = c_data.get("om2", "")
                 

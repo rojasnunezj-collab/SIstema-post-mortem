@@ -258,6 +258,11 @@ def main():
             st.divider()
             st.markdown("### Formularios Adicionales")
             is_fraude = st.checkbox("¿El caso involucra Fraude (WL)?", value=False)
+            is_guru = st.checkbox("Llenado manual Gurú", value=False)
+            contacto_guru = ""
+            if is_guru:
+                contacto_guru = st.text_area("Detalle de contacto Gurú", placeholder="Escribe aquí el detalle de gurú...", height=80)
+                
             caso_str = str(caso).strip().lower()
             is_amenaza = "amenaza" in caso_str or "denuncia" in caso_str
             if is_amenaza:
@@ -274,7 +279,42 @@ def main():
                 st.markdown("### Corrección de Estilo (Borrador de Resolución)")
                 reporte_cliente = st.text_area("1. El cliente / líder reporta:", height=80, placeholder="Escribe aquí lo que reporta el cliente...")
                 analisis_caso = st.text_area("2. Análisis del caso que se hizo:", height=80, placeholder="Escribe aquí tu análisis del caso...")
-                resolucion_caso = st.text_area("3. Resolución del caso:", height=80, placeholder="Escribe aquí cómo se resolvió...")
+                
+                st.markdown("**3. Resolución del caso:**")
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
+                with col_d2:
+                    f_dev = None
+                    if op_dev in ["Cupón", "Wallet"]:
+                        f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY")
+                        
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
+                with col_c2:
+                    f_comp = None
+                    if op_comp in ["Cupón", "Wallet"]:
+                        f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY")
+                        
+                opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
+                otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
+                
+                # Armar los textos finales
+                def armar_texto(monto, opcion, fecha):
+                    if opcion == "Ninguna" or monto == 0:
+                        return f"${monto}"
+                    if opcion in ["Tarjeta de débito", "Tarjeta de crédito"]:
+                        return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
+                    elif opcion in ["Cupón", "Wallet"]:
+                        fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
+                        return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
+                    return f"${monto}"
+                    
+                devolucion_str = armar_texto(devolucion, op_dev, f_dev)
+                compensacion_str = armar_texto(compensacion, op_comp, f_comp)
+                otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+                
                 label_btn = "Mejorar Textos y Continuar"
             else:
                 label_btn = "Generar Listas de Accionar"
@@ -296,17 +336,20 @@ def main():
                     "motivo_reclamo": problema,
                     "monto_pedido": monto_pedido,
                     "monto_devolucion": devolucion,
+                    "devolucion_str": devolucion_str if "Postmortem Completo" in tipo_proceso else f"${devolucion}",
                     "propina": propina,
                     "compensacion": compensacion,
-                    "total": total,
+                    "compensacion_str": compensacion_str if "Postmortem Completo" in tipo_proceso else f"${compensacion}",
+                    "otras_gestiones": otras_gestiones_str if "Postmortem Completo" in tipo_proceso else "",
                     "numeros": numeros,
                     "telefono": telefono,
-                    "fraude_str": fraude,
                     "is_fraude": is_fraude,
                     "is_amenaza": is_amenaza,
+                    "fraude_str": fraude,
                     "es_influencer": es_influencer,
                     "seguidores": seguidores,
                     "contactos": contactos,
+                    "contacto_guru": contacto_guru,
                     "limite": limite_pais,
                     "evaluacion_limite": "no PASA EL LIMITE" if total <= limite_pais else "PASA EL LIMITE",
                     "user_email": st.session_state.get("user_email", "")
@@ -427,6 +470,7 @@ def main():
                             with col_c2:
                                 area_c = st.text_input(f"Área (C{i})", key=f"area_c{i}")
                                 link_c = st.text_input(f"Link HeroCare (C{i})", key=f"link_c{i}")
+                                sop_c = st.radio(f"SOP (C{i})", ["Siguió SOP", "No siguió SOP"], key=f"sop_c{i}", horizontal=True)
                             
                         transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
                         
@@ -478,6 +522,7 @@ def main():
                             "om2": om2.strip() if om2.strip() else "no aplica",
                             "om3": om3.strip() if om3.strip() else "no aplica",
                             "om4": om4.strip() if om4.strip() else "no aplica",
+                            "sop": sop_c,
                             "descripcion": resumen_texto,
                             "img1": img1,
                             "img2": img2,
@@ -485,6 +530,9 @@ def main():
                             "img4": img4
                         }
                         datos_contactos.append(contacto)
+                        
+                st.session_state["datos_finales"]["cantidad_contactos"] = cantidad_contactos if incluir_contactos else 0
+                st.session_state["datos_finales"]["con_sin"] = "Contactos" if incluir_contactos and cantidad_contactos > 0 else "Sin contactos"
                 # ------------------------------------
                 
                 imagenes_docs = {
