@@ -351,8 +351,12 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         # 1. Copiar el documento plantilla a la carpeta destino
         order = str(datos.get('order_id', '')).strip()
         user_val = str(datos.get('user_id', '')).strip()
-        id_final = order if order and order.lower() != 'revisar' and order.lower() != 'no tiene' else user_val
-        if not id_final or id_final.lower() == 'revisar': id_final = str(datos.get('caso', 'SinID')).strip()
+        
+        # Determine the ID for the title
+        is_order_invalid = not order or order.lower() in ['revisar', 'no tiene', '-']
+        id_final = user_val if is_order_invalid else order
+        if not id_final or id_final.lower() in ['revisar', '-']: 
+            id_final = str(datos.get('caso', 'SinID')).strip()
         
         title = f"Post mortem {id_final}"
         folder_id = "16IaiuHgqtGu09T0MIC1TL9Zq0e-nsfAY"
@@ -377,9 +381,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
-            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
+            "{{DEVOLUCION}}": datos.get("devolucion_str", f"${datos.get('monto_devolucion', 0)}"),
             "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
-            "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
+            "{{COMPENSACION_FINAL}}": datos.get("compensacion_str", f"${datos.get('compensacion', 0)}"),
             "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
             "{{OTRAS_GESTIONES}}": datos.get("otras_gestiones", ""),
             "{{ORDER_ID}}": datos.get("order_id", ""),
@@ -393,7 +397,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{CLIENTE_FRAUDE}}": datos.get("fraude_str", ""),
             "{{NUMERO}}": datos.get("telefono", ""),
             "{{CANTIDAD_CONTACTOS}}": str(datos.get("cantidad_contactos", "")),
-            "{{CON_SIN}}": datos.get("con_sin", ""),
+            "{{CON_SIN}}": str(datos.get("con_sin", "")).upper(),
             "{{CONTACTO_GURU}}": datos.get("contacto_guru", "")
         }
         
@@ -425,15 +429,46 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 
         requests = []
         for key, value in variables.items():
-            requests.append({
-                'replaceAllText': {
-                    'containsText': {
-                        'text': key,
-                        'matchCase': True
-                    },
-                    'replaceText': str(value)
-                }
-            })
+            if key.startswith("{{OM") and not value.strip():
+                # If an OM is blank, try to remove the label before it as well if it exists.
+                om_label = key.replace("{{", "").replace("}}", "")
+                # We'll first try to replace the label + variable. If it doesn't match, we replace just the variable.
+                base_om = om_label.split('_')[0] # e.g. OM1
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om}: {key}", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om} : {key}", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om} {key}", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+                # Fallback to replace just the variable with empty
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': key, 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+            else:
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {
+                            'text': key,
+                            'matchCase': True
+                        },
+                        'replaceText': str(value)
+                    }
+                })
             
         # Preparar tags de imágenes
         # Hack para Google Docs: Si un tag de imagen como {{EXTRA_1}} se dividió en múltiples textRuns por formato, 

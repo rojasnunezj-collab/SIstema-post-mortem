@@ -77,17 +77,15 @@ TEXTOS A REESCRIBIR (MEJÓRALOS OBLIGATORIAMENTE):
 [Reporte]: {reporte_cliente}
 [Análisis]: {analisis_caso}
 [Resolución]: {resolucion_caso}
+
+IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido. El JSON debe tener exactamente estas claves:
+"reporte_editado", "analisis_editado", "resolucion_editado".
+No agregues comentarios ni comillas invertidas fuera del JSON.
 """
     
     import time
-    import typing_extensions as typing
     import json
     
-    class DraftResponse(typing.TypedDict):
-        reporte_editado: str
-        analisis_editado: str
-        resolucion_editado: str
-        
     model = genai.GenerativeModel(modelo_seguro)
     for intento in range(3):
         try:
@@ -96,12 +94,12 @@ TEXTOS A REESCRIBIR (MEJÓRALOS OBLIGATORIAMENTE):
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.1, 
                     max_output_tokens=1000,
-                    response_mime_type="application/json",
-                    response_schema=DraftResponse
+                    response_mime_type="application/json"
                 )
             )
             
-            datos = json.loads(response.text)
+            raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            datos = json.loads(raw_text)
             # Validar que realmente haya hecho cambios y no haya devuelto los originales o un JSON vacío
             if not datos.get("reporte_editado"):
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."

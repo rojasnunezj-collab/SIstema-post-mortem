@@ -116,6 +116,7 @@ def main():
         
         if "datos_extraidos" in st.session_state:
             st.subheader("Auditoría de Datos y Cálculos")
+            tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"])
             d = st.session_state["datos_extraidos"]
             
             # Obtener limites y reglas dinámicas
@@ -257,45 +258,50 @@ def main():
             else:
                 st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
             
-            st.divider()
-            st.markdown("**3. Resolución del caso (Métodos y Fechas):**")
-            
-            from datetime import datetime, timedelta
-            default_date = datetime.today() + timedelta(days=30)
-            
-            col_d1, col_d2 = st.columns(2)
-            with col_d1:
-                op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Cupón", "Wallet"])
-            with col_d2:
-                f_dev = None
-                if op_dev in ["Cupón", "Wallet"]:
-                    f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY", value=default_date)
-                    
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Cupón", "Wallet"])
-            with col_c2:
-                f_comp = None
-                if op_comp in ["Cupón", "Wallet"]:
-                    f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY", value=default_date)
-                    
-            opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
-            otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
-            
-            # Armar los textos finales
-            def armar_texto(monto, opcion, fecha):
-                if opcion == "Ninguna" or monto == 0:
-                    return f"${monto}"
-                if opcion in ["Tarjeta de débito", "Tarjeta de crédito"]:
-                    return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
-                elif opcion in ["Cupón", "Wallet"]:
-                    fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
-                    return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
-                return f"${monto}"
+            if "Postmortem Completo" in tipo_proceso:
+                st.divider()
+                st.markdown("**3. Resolución del caso (Métodos y Fechas):**")
                 
-            devolucion_str = armar_texto(devolucion, op_dev, f_dev)
-            compensacion_str = armar_texto(compensacion, op_comp, f_comp)
-            otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+                from datetime import datetime, timedelta
+                default_date = datetime.today() + timedelta(days=30)
+                
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    op_dev = st.selectbox("Método de Devolución", ["Ninguna", "Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago", "Cupón", "Wallet"])
+                with col_d2:
+                    f_dev = None
+                    if op_dev in ["Cupón", "Wallet"]:
+                        f_dev = st.date_input("Fecha de vigencia (Devolución)", format="DD/MM/YYYY", value=default_date)
+                        
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    op_comp = st.selectbox("Método de Compensación", ["Ninguna", "Cupón", "Wallet"])
+                with col_c2:
+                    f_comp = None
+                    if op_comp in ["Cupón", "Wallet"]:
+                        f_comp = st.date_input("Fecha de vigencia (Compensación)", format="DD/MM/YYYY", value=default_date)
+                        
+                opciones_otras = ["WL", "Baja de servicio", "Desactivación de cuenta", "Tk jira"]
+                otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
+                
+                # Armar los textos finales
+                def armar_texto(monto, opcion, fecha):
+                    if opcion == "Ninguna" or monto == 0:
+                        return f"${monto}"
+                    if opcion in ["Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago"]:
+                        return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
+                    elif opcion in ["Cupón", "Wallet"]:
+                        fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
+                        return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
+                    return f"${monto}"
+                    
+                devolucion_str = armar_texto(devolucion, op_dev, f_dev)
+                compensacion_str = armar_texto(compensacion, op_comp, f_comp)
+                otras_gestiones_str = "𝗢𝘁𝗿𝗮𝘀 𝗴𝗲𝘀𝘁𝗶𝗼𝗻𝗲𝘀: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+            else:
+                devolucion_str = f"${devolucion}"
+                compensacion_str = f"${compensacion}"
+                otras_gestiones_str = ""
             
             fraude_str_lower = fraude.lower()
             is_fraude = "cliente fraude" in fraude_str_lower or "falso positivo" in fraude_str_lower
@@ -312,8 +318,6 @@ def main():
                 st.info("⚠️ La IA detectó una Amenaza de Denuncia en el tipo de CASO.")
             
             st.divider()
-            
-            tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"])
             
             reporte_cliente = ""
             analisis_caso = ""
@@ -418,11 +422,11 @@ def main():
                 with col_d2: img_compen = st.file_uploader("Imagen Compensación", type=['png', 'jpg', 'jpeg'])
                 with col_d3: form_devo = st.file_uploader("Formulario Devolución", type=['png', 'jpg', 'jpeg'])
                 
-                st.markdown("**Imágenes Adicionales**")
-                col_e1, col_e2, col_e3 = st.columns(3)
-                with col_e1: extra_1 = st.file_uploader("Extra 1", type=['png', 'jpg', 'jpeg'])
-                with col_e2: extra_2 = st.file_uploader("Extra 2", type=['png', 'jpg', 'jpeg'])
-                with col_e3: extra_3 = st.file_uploader("Extra 3", type=['png', 'jpg', 'jpeg'])
+                with st.expander("Imágenes Adicionales"):
+                    col_e1, col_e2, col_e3 = st.columns(3)
+                    with col_e1: extra_1 = st.file_uploader("Extra 1", type=['png', 'jpg', 'jpeg'])
+                    with col_e2: extra_2 = st.file_uploader("Extra 2", type=['png', 'jpg', 'jpeg'])
+                    with col_e3: extra_3 = st.file_uploader("Extra 3", type=['png', 'jpg', 'jpeg'])
                 
                 if dfin.get("is_amenaza"):
                     st.markdown("**Imagen de Amenaza (Opcional)**")
@@ -480,10 +484,17 @@ def main():
                                 col_c1, col_c2, col_c3 = st.columns([2, 1, 1])
                                 with col_c1:
                                     agente_c = st.text_input(f"Agente {j+1}", key=f"agente_c{i}_{j}")
-                                with col_c2:
-                                    area_c = st.text_input(f"Área", key=f"area_c{i}_{j}")
-                                with col_c3:
-                                    sop_c = st.radio(f"SOP", ["Siguió SOP", "No siguió SOP"], key=f"sop_c{i}_{j}", horizontal=True, label_visibility="collapsed")
+                                
+                                is_bot = "bot" in agente_c.lower()
+                                
+                                if not is_bot:
+                                    with col_c2:
+                                        area_c = st.text_input(f"Área", key=f"area_c{i}_{j}")
+                                    with col_c3:
+                                        sop_c = st.radio(f"SOP", ["Siguió SOP", "No siguió SOP"], key=f"sop_c{i}_{j}", horizontal=True, label_visibility="collapsed")
+                                else:
+                                    area_c = "N/A"
+                                    sop_c = "N/A"
                                 
                                 agentes_list.append({"agente": agente_c, "area": area_c, "sop": sop_c})
                                 
@@ -523,17 +534,22 @@ def main():
                                 resumen_texto = transcripcion
                                 
                             is_bot = "bot" in agentes_info.lower()
-                            default_om = "no aplica" if is_bot else ""
                             
-                            col_om1, col_om2, col_om3, col_om4 = st.columns(4)
-                            with col_om1:
-                                om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or default_om, key=f"om1_c{i}")
-                            with col_om2:
-                                om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or default_om, key=f"om2_c{i}")
-                            with col_om3:
-                                om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or default_om, key=f"om3_c{i}")
-                            with col_om4:
-                                om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or default_om, key=f"om4_c{i}")
+                            if not is_bot:
+                                col_om1, col_om2, col_om3, col_om4 = st.columns(4)
+                                with col_om1:
+                                    om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or "", key=f"om1_c{i}")
+                                with col_om2:
+                                    om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or "", key=f"om2_c{i}")
+                                with col_om3:
+                                    om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or "", key=f"om3_c{i}")
+                                with col_om4:
+                                    om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
+                            else:
+                                om1 = "no aplica"
+                                om2 = "no aplica"
+                                om3 = "no aplica"
+                                om4 = "no aplica"
                                 
                             st.markdown(f"**Imágenes del Contacto {i}**")
                             col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
@@ -678,6 +694,9 @@ def main():
                     st.success("📄 ¡Datos guardados! Revisa las listas en la parte superior.")
                 else:
                     st.success("✅ Registro guardado exitosamente. Revisa las listas en la parte superior.")
+                
+                # Show list automatically for "Solo Accionar"
+                mostrar_listas(dfin)
 
 def mostrar_listas(dfin):
     st.divider()
