@@ -77,10 +77,28 @@ def main():
                 st.rerun()
 
     st.title("Generador Automático de Postmortems")
-    is_radio_disabled = st.session_state.get("tipo_proceso_global") is not None
-    st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"], index=None, key="tipo_proceso_global", disabled=is_radio_disabled)
     
-    tipo_proceso = st.session_state.get("tipo_proceso_global")
+    opciones_proceso = ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"]
+    
+    if "tipo_proceso_global" not in st.session_state:
+        st.session_state["tipo_proceso_global"] = None
+        
+    idx = None
+    if st.session_state["tipo_proceso_global"] is not None:
+        idx = opciones_proceso.index(st.session_state["tipo_proceso_global"])
+        
+    seleccion = st.radio(
+        "¿Qué acción vas a realizar?", 
+        opciones_proceso, 
+        index=idx, 
+        disabled=(idx is not None)
+    )
+    
+    if seleccion is not None and st.session_state["tipo_proceso_global"] is None:
+        st.session_state["tipo_proceso_global"] = seleccion
+        st.rerun()
+        
+    tipo_proceso = st.session_state["tipo_proceso_global"]
 
     uploaded_files = []
     if tipo_proceso is not None:
