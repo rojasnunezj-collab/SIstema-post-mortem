@@ -91,7 +91,6 @@ def main():
                 cols[i].image(image, caption=file.name, use_container_width=True)
 
         st.divider()
-        if True:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
