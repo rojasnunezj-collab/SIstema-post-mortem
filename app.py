@@ -79,6 +79,8 @@ def main():
     st.title("Generador Automático de Postmortems")
     st.write("Sube las capturas del caso para extraer la información.")
 
+    tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"], key="tipo_proceso_global")
+
     uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
     if uploaded_files:
@@ -116,7 +118,7 @@ def main():
         
         if "datos_extraidos" in st.session_state:
             st.subheader("Auditoría de Datos y Cálculos")
-            tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"])
+            tipo_proceso = st.session_state.tipo_proceso_global
             d = st.session_state["datos_extraidos"]
             
             # Obtener limites y reglas dinámicas
@@ -289,10 +291,10 @@ def main():
                     if opcion == "Ninguna" or monto == 0:
                         return f"${monto}"
                     if opcion in ["Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago"]:
-                        return f"${monto} (a {opcion.lower()} reflejado en máximo 7 días hábiles)"
+                        return f"${monto} (se verá reflejado en su {opcion.lower()} en máximo 7 días hábiles)"
                     elif opcion in ["Cupón", "Wallet"]:
                         fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
-                        return f"${monto} ({opcion.lower()} con vigencia hasta {fecha_str})"
+                        return f"${monto} (se verá reflejado como {opcion.lower()} con vigencia hasta {fecha_str})"
                     return f"${monto}"
                     
                 devolucion_str = armar_texto(devolucion, op_dev, f_dev)
@@ -546,10 +548,10 @@ def main():
                                 with col_om4:
                                     om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
                             else:
-                                om1 = "no aplica"
-                                om2 = "no aplica"
-                                om3 = "no aplica"
-                                om4 = "no aplica"
+                                om1 = ""
+                                om2 = ""
+                                om3 = ""
+                                om4 = ""
                                 
                             st.markdown(f"**Imágenes del Contacto {i}**")
                             col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)
@@ -562,10 +564,10 @@ def main():
                                 "fecha": fecha_c.replace('.', '/'),
                                 "agentes_info": agentes_info,
                                 "link": link_c,
-                                "om1": om1.strip() if om1.strip() else "no aplica",
-                                "om2": om2.strip() if om2.strip() else "no aplica",
-                                "om3": om3.strip() if om3.strip() else "no aplica",
-                                "om4": om4.strip() if om4.strip() else "no aplica",
+                                "om1": "" if om1.strip().lower() == "no aplica" else om1.strip(),
+                                "om2": "" if om2.strip().lower() == "no aplica" else om2.strip(),
+                                "om3": "" if om3.strip().lower() == "no aplica" else om3.strip(),
+                                "om4": "" if om4.strip().lower() == "no aplica" else om4.strip(),
                                 "descripcion": resumen_texto,
                                 "img1": img1,
                                 "img2": img2,
@@ -575,7 +577,7 @@ def main():
                             datos_contactos.append(contacto)
                         
                 st.session_state["datos_finales"]["cantidad_contactos"] = cantidad_contactos if incluir_contactos else 0
-                st.session_state["datos_finales"]["con_sin"] = "Contactos" if incluir_contactos and cantidad_contactos > 0 else "Sin contactos"
+                st.session_state["datos_finales"]["con_sin"] = "CONTACTOS" if incluir_contactos and cantidad_contactos > 0 else "SIN CONTACTOS"
                 # ------------------------------------
                 
                 imagenes_docs = {
@@ -648,7 +650,7 @@ def main():
 **Número Teléfono:** {dfin.get("telefono", "")}
 
 ---
-## Detalles de Contactos:"""
+## DETALLES DE CONTACTOS:"""
                         for i, c_data in enumerate(datos_contactos, 1):
                             texto_contingencia += f"""
 ### Contacto #{i}
