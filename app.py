@@ -77,20 +77,21 @@ def main():
                 st.rerun()
 
     st.title("Generador Automático de Postmortems")
-    st.write("Sube las capturas del caso para extraer la información.")
+    tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"], index=None, key="tipo_proceso_global")
 
-    tipo_proceso = st.radio("¿Qué acción vas a realizar?", ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"], key="tipo_proceso_global")
+    uploaded_files = []
+    if tipo_proceso is not None:
+        st.write("Sube las capturas del caso para extraer la información.")
+        uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
-    uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
+        if uploaded_files:
+            cols = st.columns(len(uploaded_files))
+            for i, file in enumerate(uploaded_files):
+                image = Image.open(file)
+                cols[i].image(image, caption=file.name, use_container_width=True)
 
-    if uploaded_files:
-        cols = st.columns(len(uploaded_files))
-        for i, file in enumerate(uploaded_files):
-            image = Image.open(file)
-            cols[i].image(image, caption=file.name, use_container_width=True)
-
-    st.divider()
-    if True:
+        st.divider()
+        if True:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
