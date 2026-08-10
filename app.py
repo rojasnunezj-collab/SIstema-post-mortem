@@ -83,20 +83,17 @@ def main():
     if "tipo_proceso_global" not in st.session_state:
         st.session_state["tipo_proceso_global"] = None
         
-    idx = None
-    if st.session_state["tipo_proceso_global"] is not None:
-        idx = opciones_proceso.index(st.session_state["tipo_proceso_global"])
-        
-    seleccion = st.radio(
-        "¿Qué acción vas a realizar?", 
-        opciones_proceso, 
-        index=idx, 
-        disabled=(idx is not None)
-    )
-    
-    if seleccion is not None and st.session_state["tipo_proceso_global"] is None:
-        st.session_state["tipo_proceso_global"] = seleccion
-        st.rerun()
+    if st.session_state["tipo_proceso_global"] is None:
+        seleccion = st.radio(
+            "¿Qué acción vas a realizar?", 
+            opciones_proceso,
+            index=None
+        )
+        if seleccion is not None:
+            st.session_state["tipo_proceso_global"] = seleccion
+            st.rerun()
+    else:
+        st.text_input("Acción seleccionada (bloqueada):", value=st.session_state["tipo_proceso_global"], disabled=True)
         
     tipo_proceso = st.session_state["tipo_proceso_global"]
 
