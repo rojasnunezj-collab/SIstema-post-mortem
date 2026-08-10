@@ -151,7 +151,7 @@ def main():
                 hora = st.text_input("HORA", value=d.get("hora", ""))
                 fin_accion = st.text_input("FIN DE ACCION", value=d.get("fin_accion", "Revisar"))
                 caso = st.text_input("CASO", value=d.get("caso", ""))
-                agente = st.text_input("AGENTE", value=d.get("agente_escala", ""))
+                agente = st.text_area("AGENTE", value=str(d.get("agente_escala", "")).replace(", ", "\n"), height=80)
                 
                 val_seguidores = d.get("seguidores", "no corresponde")
                 if val_seguidores is None: val_seguidores = "no corresponde"
@@ -518,10 +518,16 @@ def main():
                                 
                                 agentes_list.append({"agente": agente_c, "area": area_c, "sop": sop_c})
                                 
-                            if st.button(f"➕ Añadir otro Agente al Contacto {i}", key=f"add_ag_{i}"):
-                                st.session_state[num_agentes_key] += 1
-                                st.rerun()
-                                
+                            col_add, col_rem = st.columns(2)
+                            with col_add:
+                                if st.button(f"➕ Añadir Agente (C{i})", key=f"add_ag_{i}"):
+                                    st.session_state[num_agentes_key] += 1
+                                    st.rerun()
+                            with col_rem:
+                                if st.session_state[num_agentes_key] > 1:
+                                    if st.button(f"➖ Quitar Agente (C{i})", key=f"rem_ag_{i}"):
+                                        st.session_state[num_agentes_key] -= 1
+                                        st.rerun()
                             # Armar string de agentes combinados para la variable
                             agentes_str_parts = []
                             for ag in agentes_list:
@@ -534,7 +540,7 @@ def main():
                             st.markdown("**Análisis y Transcripción**")
                             transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
                             
-                            if st.button(f"Analizar Interacción C{i}", key=f"btn_analizar_c{i}"):
+                            if st.button(f"🤖 Analizar Interacción (Extraer OMs y Resumen) C{i}", key=f"btn_analizar_c{i}"):
                                 if transcripcion:
                                     with st.spinner("Analizando con Gemini..."):
                                         # Le pasamos todos los agentes para que los evalúe
@@ -547,29 +553,28 @@ def main():
                             
                             om_data = st.session_state.get(f"om_c{i}", {})
                             
+                            # Mostrar OMs PRIMERO
+                            st.markdown("##### Oportunidades de Mejora (OM)")
+                            col_om1, col_om2, col_om3, col_om4 = st.columns(4)
+                            with col_om1:
+                                om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or "", key=f"om1_c{i}")
+                            with col_om2:
+                                om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or "", key=f"om2_c{i}")
+                            with col_om3:
+                                om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or "", key=f"om3_c{i}")
+                            with col_om4:
+                                om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
+                                
+                            is_bot = "bot" in agentes_info.lower()
+                            if is_bot:
+                                st.info("El agente es bot. Las OMs predeterminadas que dejes vacías no saldrán en el doc final.")
+                                
+                            # Resumen DESPUES
+                            st.markdown("##### Resumen de la Interacción")
                             if f"resumen_c{i}" in st.session_state:
-                                st.info("Resumen generado:")
                                 resumen_texto = st.text_area("Texto resumido a inyectar", value=st.session_state[f"resumen_c{i}"], height=100, key=f"resumen_input_{i}")
                             else:
                                 resumen_texto = transcripcion
-                                
-                            is_bot = "bot" in agentes_info.lower()
-                            
-                            if not is_bot:
-                                col_om1, col_om2, col_om3, col_om4 = st.columns(4)
-                                with col_om1:
-                                    om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or "", key=f"om1_c{i}")
-                                with col_om2:
-                                    om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or "", key=f"om2_c{i}")
-                                with col_om3:
-                                    om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or "", key=f"om3_c{i}")
-                                with col_om4:
-                                    om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
-                            else:
-                                om1 = ""
-                                om2 = ""
-                                om3 = ""
-                                om4 = ""
                                 
                             st.markdown(f"**Imágenes del Contacto {i}**")
                             col_img_c1, col_img_c2, col_img_c3, col_img_c4 = st.columns(4)

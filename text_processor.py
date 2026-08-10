@@ -109,6 +109,6 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                 if intento < 2:
                     time.sleep(2)
                     continue
-            return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ La IA falló al mejorar el texto, se usarán los originales." # Fallback
+            return reporte_cliente, analisis_caso, resolucion_caso, "" # Fallback silencioso
             
-    return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ La IA falló al mejorar el texto (límite de reintentos)."
+    return reporte_cliente, analisis_caso, resolucion_caso, "" # Fallback silencioso

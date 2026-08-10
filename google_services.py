@@ -432,11 +432,24 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             if key.startswith("{{OM") and not value.strip():
                 # If an OM is blank, try to remove the label before it as well if it exists.
                 om_label = key.replace("{{", "").replace("}}", "")
-                # We'll first try to replace the label + variable. If it doesn't match, we replace just the variable.
                 base_om = om_label.split('_')[0] # e.g. OM1
+                
+                # Para eliminar la línea vacía en Google Docs, incluimos el salto de línea (\n)
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om}: {key}\n", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
                 requests.append({
                     'replaceAllText': {
                         'containsText': {'text': f"{base_om}: {key}", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om} : {key}\n", 'matchCase': True},
                         'replaceText': ''
                     }
                 })
@@ -448,11 +461,23 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 })
                 requests.append({
                     'replaceAllText': {
+                        'containsText': {'text': f"{base_om} {key}\n", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
                         'containsText': {'text': f"{base_om} {key}", 'matchCase': True},
                         'replaceText': ''
                     }
                 })
                 # Fallback to replace just the variable with empty
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{key}\n", 'matchCase': True},
+                        'replaceText': ''
+                    }
+                })
                 requests.append({
                     'replaceAllText': {
                         'containsText': {'text': key, 'matchCase': True},
