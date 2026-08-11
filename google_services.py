@@ -376,15 +376,29 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         
         # 2. Preparar los reemplazos base
         from datetime import datetime
+        def format_monto(m):
+            try:
+                m_f = float(m)
+                if m_f == 0:
+                    return "0"
+                if m_f.is_integer():
+                    return str(int(m_f))
+                return str(m_f)
+            except:
+                return str(m)
+
+        monto_dev = format_monto(datos.get('monto_devolucion', 0))
+        monto_comp = format_monto(datos.get('compensacion', 0))
+
         variables = {
             "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
-            "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
-            "{{VALOR_RECLAMO}}": f"${datos.get('monto_devolucion', 0)}",
+            "{{DEVOLUCION}}": monto_dev,
+            "{{VALOR_RECLAMO}}": monto_dev,
             "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
-            "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
+            "{{COMPENSACION_FINAL}}": monto_comp,
             "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
             "{{OTRAS_GESTIONES}}": datos.get("otras_gestiones", ""),
             "{{ORDER_ID}}": datos.get("order_id", ""),
@@ -430,6 +444,9 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 
         requests = []
         if not datos.get("compensacion_str", "").strip():
+            variables["{{COMPENSACION_FINAL}}"] = ""
+            variables["{{TEXTO_COMPENSACION}}"] = ""
+            # Primero intentamos reemplazar la línea completa si coincide con el formato esperado original
             requests.append({
                 'replaceAllText': {
                     'containsText': {'text': 'Compensación: {{COMPENSACION_FINAL}} {{TEXTO_COMPENSACION}}\n', 'matchCase': True},
@@ -509,6 +526,27 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                         'replaceText': str(value)
                     }
                 })
+                
+        # Fallback for Compensación si no hay compensación
+        if not datos.get("compensacion_str", "").strip():
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {'text': 'Compensación: \n', 'matchCase': True},
+                    'replaceText': ''
+                }
+            })
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {'text': 'Compensación: ', 'matchCase': True},
+                    'replaceText': ''
+                }
+            })
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {'text': 'Compensación:\n', 'matchCase': True},
+                    'replaceText': ''
+                }
+            })
             
         # Preparar tags de imágenes
         # Hack para Google Docs: Si un tag de imagen como {{EXTRA_1}} se dividió en múltiples textRuns por formato, 
@@ -575,16 +613,18 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             if len(datos_contactos) == 0:
                 start_idx_delete = 1
                 
+            import re
             for i in range(start_idx_delete, MAX_CONTACTS + 1):
-                start_tag = f"<<START_{i}>>"
-                end_tag = f"<<END_{i}>>"
+                start_pattern = r'<<\s*START_' + str(i) + r'\s*>>'
+                end_pattern = r'<<\s*END_' + str(i) + r'\s*>>'
                 
-                start_idx_str = full_text.find(start_tag)
-                end_idx_str = full_text.find(end_tag)
+                start_match = re.search(start_pattern, full_text)
+                end_match = re.search(end_pattern, full_text)
                 
-                if start_idx_str != -1 and end_idx_str != -1:
+                if start_match and end_match:
                     # endIndex debe abarcar el final del tag <<END_X>>
-                    end_idx_str_final = end_idx_str + len(end_tag)
+                    start_idx_str = start_match.start()
+                    end_idx_str_final = end_match.end()
                     
                     real_start = index_map[start_idx_str]
                     # tomamos el índice correspondiente al final

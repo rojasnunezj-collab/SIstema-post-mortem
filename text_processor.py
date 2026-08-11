@@ -109,6 +109,6 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                 if intento < 2:
                     time.sleep(2)
                     continue
-            return reporte_cliente, analisis_caso, resolucion_caso, "" # Fallback silencioso
+            return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {str(sub_e)}"
             
-    return reporte_cliente, analisis_caso, resolucion_caso, "" # Fallback silencioso
+    return reporte_cliente, analisis_caso, resolucion_caso, "No se pudo mejorar el texto después de varios intentos."
