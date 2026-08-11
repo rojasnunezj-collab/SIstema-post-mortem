@@ -270,13 +270,16 @@ def main():
             with col_met1: st.metric("LÍMITE PAÍS", f"${limite_pais:.2f}")
             with col_met2: st.metric("PEDIDO+PROPINA + COMPENSACIÓN", f"${total:.2f}")
             
+            total_ideal = pedido_mas_propina + compensacion_ideal
             if limite_pais > 0:
                 if total > limite_pais:
-                    st.error(f"🔴 Pasa el límite país (El total ${total:.2f} supera el límite de ${limite_pais:.2f})")
+                    st.error(f"🔴 Pasa el límite país. El subtotal de pedido+propina (${pedido_mas_propina:.2f}) ya supera el límite de ${limite_pais:.2f}.")
+                elif total_ideal > limite_pais:
+                    st.warning(f"🟡 Pasa el límite (Total ideal era ${total_ideal:.2f}), pero ya se calculó la diferencia para ajustarlo al límite (Total: ${total:.2f}).")
                 else:
                     st.success(f"🟢 No pasa el límite país (Total: ${total:.2f})")
             else:
-                st.warning(f"🟡 País sin límite configurado (Total: ${total:.2f})")
+                st.info(f"🔵 País sin límite configurado (Total: ${total:.2f})")
             
             if "Postmortem Completo" in tipo_proceso:
                 st.divider()
@@ -305,22 +308,23 @@ def main():
                 otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
                 
                 # Armar los textos finales
-                def armar_texto(monto, opcion, fecha):
-                    if opcion == "Ninguna" or monto == 0:
-                        return f"${monto}"
+                def armar_texto(opcion, fecha):
+                    if opcion == "Ninguna":
+                        return ""
                     if opcion in ["Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago"]:
-                        return f"${monto} (se verá reflejado en su {opcion.lower()} en máximo 7 días hábiles)"
+                        return f"a {opcion.lower()}; se verá reflejado en 7 días hábiles"
                     elif opcion in ["Cupón", "Wallet"]:
                         fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
-                        return f"${monto} (se verá reflejado como {opcion.lower()} con vigencia hasta {fecha_str})"
-                    return f"${monto}"
+                        opt_clean = opcion.lower().replace("ó", "o")
+                        return f"a {opt_clean} con una vigencia hasta {fecha_str}"
+                    return ""
                     
-                devolucion_str = armar_texto(devolucion, op_dev, f_dev)
-                compensacion_str = armar_texto(compensacion, op_comp, f_comp)
+                devolucion_str = armar_texto(op_dev, f_dev)
+                compensacion_str = armar_texto(op_comp, f_comp)
                 otras_gestiones_str = "𝗢𝘁𝗿𝗮𝘀 𝗴𝗲𝘀𝘁𝗶𝗼𝗻𝗲𝘀: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
             else:
-                devolucion_str = f"${devolucion}"
-                compensacion_str = f"${compensacion}"
+                devolucion_str = ""
+                compensacion_str = ""
                 otras_gestiones_str = ""
             
             fraude_str_lower = fraude.lower()
