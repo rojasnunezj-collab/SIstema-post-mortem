@@ -382,6 +382,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
             "{{DEVOLUCION}}": f"${datos.get('monto_devolucion', 0)}",
+            "{{VALOR_RECLAMO}}": f"${datos.get('monto_devolucion', 0)}",
             "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
             "{{COMPENSACION_FINAL}}": f"${datos.get('compensacion', 0)}",
             "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
@@ -402,7 +403,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         }
         
         # 2.1 Preparar reemplazos para los bloques de contactos
-        MAX_CONTACTS = 7
+        MAX_CONTACTS = 8
         for i in range(1, MAX_CONTACTS + 1):
             if i <= len(datos_contactos):
                 # Este bloque se usa, preparamos las variables
@@ -428,6 +429,20 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 pass
                 
         requests = []
+        if not datos.get("compensacion_str", "").strip():
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {'text': 'Compensación: {{COMPENSACION_FINAL}} {{TEXTO_COMPENSACION}}\n', 'matchCase': True},
+                    'replaceText': ''
+                }
+            })
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {'text': 'Compensación: {{COMPENSACION_FINAL}} {{TEXTO_COMPENSACION}}', 'matchCase': True},
+                    'replaceText': ''
+                }
+            })
+            
         for key, value in variables.items():
             if key.startswith("{{OM") and not value.strip():
                 # If an OM is blank, try to remove the label before it as well if it exists.

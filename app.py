@@ -308,20 +308,20 @@ def main():
                 otras_seleccionadas = st.multiselect("Otras Gestiones (opcional)", opciones_otras)
                 
                 # Armar los textos finales
-                def armar_texto(opcion, fecha):
+                def armar_texto(opcion, fecha, monto):
                     if opcion == "Ninguna":
                         return ""
                     if opcion in ["Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago"]:
-                        return f"a {opcion.lower()}; se verá reflejado en 7 días hábiles"
+                        return f"${monto} a {opcion.lower()}; se verá reflejado en 7 días hábiles"
                     elif opcion in ["Cupón", "Wallet"]:
                         fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
                         opt_clean = opcion.lower().replace("ó", "o")
-                        return f"a {opt_clean} con una vigencia hasta {fecha_str}"
+                        return f"${monto} a {opt_clean} con una vigencia hasta {fecha_str}"
                     return ""
                     
-                devolucion_str = armar_texto(op_dev, f_dev)
-                compensacion_str = armar_texto(op_comp, f_comp)
-                otras_gestiones_str = "𝗢𝘁𝗿𝗮𝘀 𝗴𝗲𝘀𝘁𝗶𝗼𝗻𝗲𝘀: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
+                devolucion_str = armar_texto(op_dev, f_dev, devolucion)
+                compensacion_str = armar_texto(op_comp, f_comp, compensacion)
+                otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
             else:
                 devolucion_str = ""
                 compensacion_str = ""
