@@ -127,7 +127,13 @@ def extraer_datos_gemini(imagenes_pil):
                 img = img.resize(new_size, Image.Resampling.LANCZOS)
             contenido.append(img)
             
-        response = model.generate_content(contenido)
+        response = model.generate_content(
+            contenido,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1,
+                response_mime_type="application/json"
+            )
+        )
         
         # Extractor robusto de JSON para evadir basura generada por la IA
         raw_text = response.text.replace("```json", "").replace("```", "").strip()
@@ -138,7 +144,8 @@ def extraer_datos_gemini(imagenes_pil):
             end = raw_text.rfind('}')
             while end != -1:
                 try:
-                    parsed_json = json.loads(raw_text[:end+1])
+                    parsed_json = json.loads(raw_text[:end+1], strict=False)
+                    parsed_json = {k.lower(): v for k, v in parsed_json.items()}
                     st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🕵️‍♂️")
                     return parsed_json
                 except json.JSONDecodeError:
@@ -216,7 +223,13 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     
     try:
         model = genai.GenerativeModel(modelo_seguro)
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1,
+                response_mime_type="application/json"
+            )
+        )
         
         raw_text = response.text.replace("```json", "").replace("```", "").strip()
         start = raw_text.find('{')
@@ -225,7 +238,10 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
             raw_text = raw_text[start:]
             end = raw_text.rfind('}')
             if end != -1:
-                parsed_json = json.loads(raw_text[:end+1])
+                parsed_json = json.loads(raw_text[:end+1], strict=False)
+                # Normalizar claves a minúsculas
+                parsed_json = {k.lower(): v for k, v in parsed_json.items()}
+                
                 # Asegurar que todas las claves existan
                 for key in ["om1", "om2", "om3", "om4"]:
                     if key not in parsed_json or not parsed_json[key]:
