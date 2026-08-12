@@ -681,8 +681,8 @@ def main():
 
 ---
 ## DETALLES DE CONTACTOS:"""
-        for i, c_data in enumerate(datos_contactos, 1):
-            texto_contingencia += f"""
+                        for i, c_data in enumerate(datos_contactos, 1):
+                            texto_contingencia += f"""
 ### Contacto #{i}
 **Fecha:** {c_data.get("fecha", "")}
 **Agente:** {c_data.get("agentes_info", "")}
