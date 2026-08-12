@@ -389,7 +389,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
 
         monto_dev = format_monto(datos.get('monto_devolucion', 0))
         monto_comp = format_monto(datos.get('compensacion', 0))
-
+        otras_str = datos.get("otras_gestiones", "")
         variables = {
             "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
             "{{CCR3}}": datos.get("ccr3", ""),
@@ -400,7 +400,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
             "{{COMPENSACION_FINAL}}": monto_comp,
             "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
-            "{{OTRAS_GESTIONES}}": datos.get("otras_gestiones", ""),
+            "{{OTRAS_GESTIONES}}": "@@OTRAS_GESTIONES_MARKER@@" if otras_str else "",
             "{{ORDER_ID}}": datos.get("order_id", ""),
             "{{USER_ID}}": datos.get("user_id", ""),
             "{{CORREO}}": datos.get("correo", ""),
@@ -461,7 +461,35 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             })
             
         for key, value in variables.items():
-            if key.startswith("{{OM") and not value.strip():
+            if value == "@@BOT_NO_APLICA@@":
+                # Special cleanup for BOT so it removes the OM1 label
+                om_label = key.replace("{{", "").replace("}}", "")
+                base_om = om_label.split('_')[0]
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om}: {key}", 'matchCase': True},
+                        'replaceText': value
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om} : {key}", 'matchCase': True},
+                        'replaceText': value
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': f"{base_om} {key}", 'matchCase': True},
+                        'replaceText': value
+                    }
+                })
+                requests.append({
+                    'replaceAllText': {
+                        'containsText': {'text': key, 'matchCase': True},
+                        'replaceText': value
+                    }
+                })
+            elif key.startswith("{{OM") and not value.strip():
                 # If an OM is blank, try to remove the label before it as well if it exists.
                 om_label = key.replace("{{", "").replace("}}", "")
                 base_om = om_label.split('_')[0] # e.g. OM1
@@ -648,6 +676,101 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 ).execute()
         except Exception as e:
             st.warning(f"Error al borrar bloques sobrantes de contactos: {e}. El documento se generó, pero puede contener texto extra.")
+            
+        # Procesar Formatos Especiales (Bot y Otras Gestiones)
+        try:
+            doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+            
+            def find_marker(content, m):
+                for element in content:
+                    if 'paragraph' in element:
+                        for p_elem in element['paragraph'].get('elements', []):
+                            if 'textRun' in p_elem:
+                                texto_p = p_elem['textRun'].get('content', '')
+                                idx = texto_p.find(m)
+                                if idx != -1:
+                                    start = p_elem['startIndex'] + idx
+                                    end = start + len(m)
+                                    return start, end
+                    elif 'table' in element:
+                        for row in element['table'].get('tableRows', []):
+                            for cell in row.get('tableCells', []):
+                                res = find_marker(cell.get('content', []), m)
+                                if res:
+                                    return res
+                return None
+                
+            # Format Bot OMs
+            marker_bot = "@@BOT_NO_APLICA@@"
+            while True:
+                res = find_marker(doc_content.get('body', {}).get('content', []), marker_bot)
+                if not res:
+                    break
+                start, end = res
+                reqs = [
+                    {
+                        'deleteContentRange': {
+                            'range': {'startIndex': start, 'endIndex': end}
+                        }
+                    },
+                    {
+                        'insertText': {
+                            'location': {'index': start},
+                            'text': 'No aplica'
+                        }
+                    },
+                    {
+                        'updateTextStyle': {
+                            'range': {'startIndex': start, 'endIndex': start + len('No aplica')},
+                            'textStyle': {
+                                'bold': True,
+                                'foregroundColor': {
+                                    'color': {'rgbColor': {'red': 1.0, 'green': 0.0, 'blue': 0.0}}
+                                }
+                            },
+                            'fields': 'bold,foregroundColor'
+                        }
+                    }
+                ]
+                docs_service.documents().batchUpdate(documentId=new_doc_id, body={'requests': reqs}).execute()
+                doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+                
+            # Format Otras Gestiones
+            marker_otras = "@@OTRAS_GESTIONES_MARKER@@"
+            while True:
+                res = find_marker(doc_content.get('body', {}).get('content', []), marker_otras)
+                if not res:
+                    break
+                start, end = res
+                reqs = [
+                    {
+                        'deleteContentRange': {
+                            'range': {'startIndex': start, 'endIndex': end}
+                        }
+                    },
+                    {
+                        'insertText': {
+                            'location': {'index': start},
+                            'text': otras_str
+                        }
+                    }
+                ]
+                
+                if otras_str.startswith("Otras gestiones:"):
+                    reqs.append({
+                        'updateTextStyle': {
+                            'range': {'startIndex': start, 'endIndex': start + len("Otras gestiones:")},
+                            'textStyle': {'bold': True},
+                            'fields': 'bold'
+                        }
+                    })
+                    
+                docs_service.documents().batchUpdate(documentId=new_doc_id, body={'requests': reqs}).execute()
+                doc_content = docs_service.documents().get(documentId=new_doc_id).execute()
+                
+        except Exception as e:
+            import logging
+            logging.error(f"Error formating especiales: {e}")
             
         # 4. Procesar IMÁGENES
         if imagenes_docs:

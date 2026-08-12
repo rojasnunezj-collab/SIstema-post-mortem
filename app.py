@@ -571,8 +571,23 @@ def main():
                                 
                             is_bot = "bot" in agentes_info.lower()
                             if is_bot:
-                                st.info("El agente es bot. Las OMs predeterminadas que dejes vacías no saldrán en el doc final.")
-                                
+                                om1 = "@@BOT_NO_APLICA@@"
+                                om2 = ""
+                                om3 = ""
+                                om4 = ""
+                                st.info("El agente es bot. Las OMs se han ocultado y saldrán como 'No aplica' en el doc.")
+                            else:
+                                st.markdown("##### Oportunidades de Mejora (OM)")
+                                col_om1, col_om2, col_om3, col_om4 = st.columns(4)
+                                with col_om1:
+                                    om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or "", key=f"om1_c{i}")
+                                with col_om2:
+                                    om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or "", key=f"om2_c{i}")
+                                with col_om3:
+                                    om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or "", key=f"om3_c{i}")
+                                with col_om4:
+                                    om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
+                                    
                             # Resumen DESPUES
                             st.markdown("##### Resumen de la Interacción")
                             if f"resumen_c{i}" in st.session_state:
@@ -591,7 +606,7 @@ def main():
                                 "fecha": fecha_c.replace('.', '/'),
                                 "agentes_info": agentes_info,
                                 "link": link_c,
-                                "om1": "" if om1.strip().lower() == "no aplica" else om1.strip(),
+                                "om1": om1.strip() if om1 == "@@BOT_NO_APLICA@@" else ("" if om1.strip().lower() == "no aplica" else om1.strip()),
                                 "om2": "" if om2.strip().lower() == "no aplica" else om2.strip(),
                                 "om3": "" if om3.strip().lower() == "no aplica" else om3.strip(),
                                 "om4": "" if om4.strip().lower() == "no aplica" else om4.strip(),
@@ -759,11 +774,13 @@ def mostrar_listas(dfin):
         
         c5, c6, c7 = st.columns(3)
         c5.markdown("**DEVOLUCION**")
-        c5.code(dfin['monto_devolucion'], language="text")
+        val_dev = dfin['devolucion_str'] if dfin.get('devolucion_str') else f"${dfin['monto_devolucion']}"
+        c5.code(val_dev, language="text")
         c6.markdown("**PROPINA**")
         c6.code(dfin['propina'], language="text")
         c7.markdown("**COMPENSACION FINAL**")
-        c7.code(dfin['compensacion'], language="text")
+        val_comp = dfin['compensacion_str'] if dfin.get('compensacion_str') else f"${dfin['compensacion']}"
+        c7.code(val_comp, language="text")
         
         st.markdown("**LINK**")
         st.code(dfin['pedido_link'], language="text")
