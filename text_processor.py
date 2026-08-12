@@ -99,7 +99,18 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
             )
             
             raw_text = response.text.replace("```json", "").replace("```", "").strip()
-            datos = json.loads(raw_text, strict=False)
+            
+            start = raw_text.find('{')
+            if start != -1:
+                raw_text = raw_text[start:]
+                end = raw_text.rfind('}')
+                if end != -1:
+                    datos = json.loads(raw_text[:end+1], strict=False)
+                else:
+                    return reporte_cliente, analisis_caso, resolucion_caso, "El formato JSON quedó incompleto (sin cierre)."
+            else:
+                return reporte_cliente, analisis_caso, resolucion_caso, "La IA no devolvió un JSON válido."
+                
             # Validar que realmente haya hecho cambios y no haya devuelto los originales o un JSON vacío
             if not datos.get("reporte_editado"):
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."

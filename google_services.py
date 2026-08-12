@@ -447,7 +447,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 pass
                 
         requests = []
-        if not datos.get("compensacion_str", "").strip():
+        if monto_comp == "0":
             variables["{{COMPENSACION_FINAL}}"] = ""
             variables["{{TEXTO_COMPENSACION}}"] = ""
             # Primero intentamos reemplazar la línea completa si coincide con el formato esperado original
