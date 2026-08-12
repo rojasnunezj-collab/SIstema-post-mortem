@@ -390,16 +390,20 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         monto_dev = format_monto(datos.get('monto_devolucion', 0))
         monto_comp = format_monto(datos.get('compensacion', 0))
         otras_str = datos.get("otras_gestiones", "")
+        
+        val_devo = datos.get("devolucion_str") if datos.get("devolucion_str") else f"${monto_dev}"
+        val_comp = datos.get("compensacion_str") if datos.get("compensacion_str") else f"${monto_comp}"
+        
         variables = {
             "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
-            "{{DEVOLUCION}}": monto_dev,
-            "{{VALOR_RECLAMO}}": monto_dev,
-            "{{TEXTO_DEVOLUCION}}": datos.get("devolucion_str", ""),
-            "{{COMPENSACION_FINAL}}": monto_comp,
-            "{{TEXTO_COMPENSACION}}": datos.get("compensacion_str", ""),
+            "{{DEVOLUCION}}": val_devo,
+            "{{VALOR_RECLAMO}}": f"${monto_dev}",
+            "{{TEXTO_DEVOLUCION}}": "",
+            "{{COMPENSACION_FINAL}}": val_comp,
+            "{{TEXTO_COMPENSACION}}": "",
             "{{OTRAS_GESTIONES}}": "@@OTRAS_GESTIONES_MARKER@@" if otras_str else "",
             "{{ORDER_ID}}": datos.get("order_id", ""),
             "{{USER_ID}}": datos.get("user_id", ""),
