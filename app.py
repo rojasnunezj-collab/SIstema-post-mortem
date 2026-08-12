@@ -557,18 +557,6 @@ def main():
                             
                             om_data = st.session_state.get(f"om_c{i}", {})
                             
-                            # Mostrar OMs PRIMERO
-                            st.markdown("##### Oportunidades de Mejora (OM)")
-                            col_om1, col_om2, col_om3, col_om4 = st.columns(4)
-                            with col_om1:
-                                om1 = st.text_area(f"OM1 (C{i})", value=om_data.get("om1") or "", key=f"om1_c{i}")
-                            with col_om2:
-                                om2 = st.text_area(f"OM2 (C{i})", value=om_data.get("om2") or "", key=f"om2_c{i}")
-                            with col_om3:
-                                om3 = st.text_area(f"OM3 (C{i})", value=om_data.get("om3") or "", key=f"om3_c{i}")
-                            with col_om4:
-                                om4 = st.text_area(f"OM4 (C{i})", value=om_data.get("om4") or "", key=f"om4_c{i}")
-                                
                             is_bot = "bot" in agentes_info.lower()
                             if is_bot:
                                 om1 = "@@BOT_NO_APLICA@@"

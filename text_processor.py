@@ -93,13 +93,13 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.1, 
-                    max_output_tokens=1000,
+                    max_output_tokens=2048,
                     response_mime_type="application/json"
                 )
             )
             
             raw_text = response.text.replace("```json", "").replace("```", "").strip()
-            datos = json.loads(raw_text)
+            datos = json.loads(raw_text, strict=False)
             # Validar que realmente haya hecho cambios y no haya devuelto los originales o un JSON vacío
             if not datos.get("reporte_editado"):
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
