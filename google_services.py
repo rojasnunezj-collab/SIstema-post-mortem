@@ -867,3 +867,114 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
     except Exception as e:
         st.error(f"Error al generar Google Doc: {e}")
         return None
+
+@st.cache_data(ttl=60, show_spinner=False)
+def obtener_casos_repositorio():
+    creds = get_credentials()
+    if not creds: return [], []
+    try:
+        import gspread
+        client = gspread.authorize(creds)
+        doc = client.open_by_key('14CDGh43bHesHpl_4oNtRK3FEczgw-RSzy9hmvCVBxv8')
+        sheet = doc.worksheet('Casos')
+        filas = sheet.get_all_values()
+        
+        casos_accion = []
+        casos_post = []
+        
+        if len(filas) <= 1:
+            return [], []
+            
+        for i, fila in enumerate(filas[1:]):
+            row_idx = i + 2
+            while len(fila) < 13:
+                fila.append("")
+                
+            n_caso = fila[4].strip()
+            estado_accion = fila[8].strip().lower()
+            estado_post = fila[10].strip().lower()
+            img_link = fila[12].strip()
+            
+            data = {
+                "row_idx": row_idx,
+                "caso": n_caso,
+                "order_id": fila[5].strip(),
+                "user_id": fila[6].strip(),
+                "pais": fila[3].strip(),
+                "img_link": img_link
+            }
+            
+            if estado_accion in ["pendiente", "en proceso"]:
+                casos_accion.append(data)
+                
+            if estado_post in ["pendiente", "en proceso"]:
+                casos_post.append(data)
+                
+        return casos_accion, casos_post
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error leyendo casos del repositorio: {e}")
+        return [], []
+
+def actualizar_estado_accion_repositorio(row_idx):
+    creds = get_credentials()
+    if not creds: return False
+    try:
+        import gspread
+        client = gspread.authorize(creds)
+        doc = client.open_by_key('14CDGh43bHesHpl_4oNtRK3FEczgw-RSzy9hmvCVBxv8')
+        sheet = doc.worksheet('Casos')
+        sheet.update_cell(row_idx, 9, "Terminado") # Columna I
+        import streamlit as st
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error actualizando estado de acción: {e}")
+        return False
+
+def actualizar_link_post_repositorio(row_idx, link):
+    creds = get_credentials()
+    if not creds: return False
+    try:
+        import gspread
+        client = gspread.authorize(creds)
+        doc = client.open_by_key('14CDGh43bHesHpl_4oNtRK3FEczgw-RSzy9hmvCVBxv8')
+        sheet = doc.worksheet('Casos')
+        sheet.update_cell(row_idx, 12, link) # Columna L
+        import streamlit as st
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error actualizando link de post: {e}")
+        return False
+
+def descargar_imagen_drive(url):
+    import re
+    import io
+    from googleapiclient.discovery import build
+    from PIL import Image
+    import streamlit as st
+    
+    # Intentar extraer ID
+    match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
+    if not match:
+        match = re.search(r'id=([a-zA-Z0-9_-]+)', url)
+        
+    if not match:
+        return None
+        
+    file_id = match.group(1)
+    creds = get_credentials()
+    if not creds: return None
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=creds)
+        request = drive_service.files().get_media(fileId=file_id)
+        file_bytes = request.execute()
+        image = Image.open(io.BytesIO(file_bytes))
+        return image
+    except Exception as e:
+        st.warning(f"No se pudo descargar la imagen de Drive: {e}")
+        return None

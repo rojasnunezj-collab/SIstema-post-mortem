@@ -14,10 +14,11 @@ def obtener_modelo_valido(api_key):
     except Exception:
         modelos = ["models/gemini-1.5-flash", "models/gemini-pro"]
 
-    # Excluir modelos experimentales o descontinuados que causan 404 (ej. 2.5, 3.6)
-    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m]
+    # Excluir modelos experimentales o que tienen cuota muy baja (ej. 2.5, 3.6, 3.7)
+    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m and "3.7" not in m]
     
-    flash = [m for m in modelos_seguros if 'flash' in m.lower()]
+    # Preferir siempre la versión 1.5 que tiene 1500 peticiones diarias gratuitas
+    flash = [m for m in modelos_seguros if '1.5-flash' in m.lower()] + [m for m in modelos_seguros if 'flash' in m.lower() and '1.5-flash' not in m.lower()]
     otros = [m for m in modelos_seguros if 'flash' not in m.lower()]
     
     # Solo probamos máximo 3 candidatos para NO agotar tu cuota de API por minuto
@@ -155,7 +156,10 @@ def extraer_datos_gemini(imagenes_pil):
         return None
         
     except Exception as e:
-        st.error(f"❌ Error parseando JSON: {e}")
+        if '429' in str(e) or 'Quota' in str(e):
+            st.error("⚠️ Has alcanzado el límite de uso gratuito de la IA (Gemini API). Por favor, espera 1 minuto o actualiza tu cuota.")
+        else:
+            st.error(f"❌ Error interno: {e}")
         return None
 
 def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):
@@ -252,4 +256,8 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
                 
         return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
     except Exception as e:
-        return {"om1": f"Error: {e}", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
+        error_msg = str(e)
+        if '429' in error_msg or 'Quota' in error_msg:
+            friendly_msg = "⚠️ Has alcanzado el límite de uso gratuito de la IA. Espera un momento."
+            return {"om1": friendly_msg, "om2": "No aplica", "om3": "No aplica", "om4": "No aplica", "resumen": "Error de cuota en API."}
+        return {"om1": f"Error: {error_msg}", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}

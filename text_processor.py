@@ -12,10 +12,11 @@ def obtener_modelo_valido(api_key):
     except Exception:
         modelos = ["models/gemini-1.5-flash", "models/gemini-pro"]
 
-    # Excluir modelos experimentales o descontinuados que causan 404 (ej. 2.5, 3.6)
-    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m]
+    # Excluir modelos experimentales o que tienen cuota muy baja (ej. 2.5, 3.6, 3.7)
+    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m and "3.7" not in m]
     
-    flash = [m for m in modelos_seguros if 'flash' in m.lower()]
+    # Preferir siempre la versión 1.5 que tiene 1500 peticiones diarias gratuitas
+    flash = [m for m in modelos_seguros if '1.5-flash' in m.lower()] + [m for m in modelos_seguros if 'flash' in m.lower() and '1.5-flash' not in m.lower()]
     otros = [m for m in modelos_seguros if 'flash' not in m.lower()]
     
     # Solo probamos máximo 3 candidatos para NO agotar tu cuota de API por minuto
@@ -116,10 +117,13 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
             return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", ""), None
         except Exception as sub_e:
-            if "500" in str(sub_e) or "429" in str(sub_e):
+            error_msg = str(sub_e)
+            if "500" in error_msg or "429" in error_msg or "Quota" in error_msg:
                 if intento < 2:
                     time.sleep(2)
                     continue
-            return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {str(sub_e)}"
+                if "429" in error_msg or "Quota" in error_msg:
+                    return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ Has alcanzado el límite de uso gratuito de la IA. Por favor, espera un momento."
+            return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {error_msg}"
             
     return reporte_cliente, analisis_caso, resolucion_caso, "No se pudo mejorar el texto después de varios intentos."

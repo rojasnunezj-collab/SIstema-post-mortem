@@ -30,6 +30,7 @@ def main():
             if key not in ["logged_in", "user_email", "uploader_key"]:
                 del st.session_state[key]
         st.session_state.uploader_key += 1 # Resetea físicamente las imágenes subidas
+        st.cache_data.clear()
         st.rerun()
 
     with st.sidebar:
@@ -78,7 +79,7 @@ def main():
 
     st.title("Generador Automático de Postmortems")
     
-    opciones_proceso = ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"]
+    opciones_proceso = ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)", "Repositorio (Leer de Google Sheets)"]
     
     if "tipo_proceso_global" not in st.session_state:
         st.session_state["tipo_proceso_global"] = None
@@ -97,8 +98,56 @@ def main():
         
     tipo_proceso = st.session_state["tipo_proceso_global"]
 
+
     uploaded_files = []
-    if tipo_proceso is not None:
+    if tipo_proceso == "Repositorio (Leer de Google Sheets)":
+        st.subheader("Repositorio de Casos")
+        from google_services import obtener_casos_repositorio, descargar_imagen_drive
+        casos_accion, casos_post = obtener_casos_repositorio()
+        
+        accion_rep = st.radio("¿Qué deseas realizar?", ["Accionar Caso", "Generar Postmortem"], key="accion_rep_radio")
+        
+        caso_seleccionado = None
+        if accion_rep == "Accionar Caso":
+            if not casos_accion:
+                st.info("No hay casos pendientes de accionar.")
+            else:
+                opciones = {f"Fila {c['row_idx']} - Caso {c['caso']} ({c['pais']})": c for c in casos_accion}
+                sel = st.selectbox("Selecciona un caso", list(opciones.keys()))
+                if sel: caso_seleccionado = opciones[sel]
+        else:
+            if not casos_post:
+                st.info("No hay casos pendientes de postmortem.")
+            else:
+                opciones = {f"Fila {c['row_idx']} - Caso {c['caso']} ({c['pais']})": c for c in casos_post}
+                sel = st.selectbox("Selecciona un caso", list(opciones.keys()))
+                if sel: caso_seleccionado = opciones[sel]
+                
+        if caso_seleccionado:
+            if st.button("Procesar Caso (Extraer con Gemini)", type="primary"):
+                with st.spinner("Descargando imagen y analizando..."):
+                    img = descargar_imagen_drive(caso_seleccionado["img_link"])
+                    if not img:
+                        st.error("No se pudo descargar la imagen del Drive. Revisa el link.")
+                    else:
+                        st.image(img, caption="Imagen del caso", use_container_width=True)
+                        from gemini_api import extraer_datos_gemini
+                        datos = extraer_datos_gemini([img])
+                        if datos:
+                            datos["fin_accion"] = datos.get("ultima_interaccion", "")
+                            # Forzar datos del sheet
+                            if caso_seleccionado["caso"]: datos["caso"] = caso_seleccionado["caso"]
+                            if caso_seleccionado["order_id"]: datos["order_id"] = caso_seleccionado["order_id"]
+                            if caso_seleccionado["user_id"]: datos["user_id"] = caso_seleccionado["user_id"]
+                            if caso_seleccionado["pais"]: datos["pais"] = caso_seleccionado["pais"]
+                            
+                            st.session_state["datos_extraidos"] = datos
+                            st.session_state["modo_manual"] = False
+                            st.session_state["tipo_proceso_real"] = "Solo Accionar" if accion_rep == "Accionar Caso" else "Postmortem Completo"
+                            st.session_state["repositorio_row_idx"] = caso_seleccionado["row_idx"]
+                            st.success("✅ ¡Datos extraídos con éxito!")
+    elif tipo_proceso is not None:
+
         st.write("Sube las capturas del caso para extraer la información.")
         uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
@@ -136,7 +185,7 @@ def main():
         
         if "datos_extraidos" in st.session_state:
             st.subheader("Auditoría de Datos y Cálculos")
-            tipo_proceso = st.session_state.tipo_proceso_global
+            tipo_proceso = st.session_state.get("tipo_proceso_real", st.session_state.tipo_proceso_global)
             d = st.session_state["datos_extraidos"]
             
             # Obtener limites y reglas dinámicas
@@ -163,7 +212,7 @@ def main():
                 else:
                     red_social = "no corresponde"
                     
-                numeros = st.text_input("NÚMEROS DE CONTACTO", value=d.get("numeros", ""))
+                numeros = st.text_input("NÚMEROS DE CONTACTO", value=d.get("numeros", "")) if "Solo Accionar" not in tipo_proceso else d.get("numeros", "")
 
             with col2:
                 correo = st.text_input("CORREO", value=d.get("correo", ""))
@@ -171,7 +220,7 @@ def main():
                 order_id = st.text_input("ORDER ID", value=d.get("order_id", ""))
                 user_id = st.text_input("USER ID", value=d.get("user_id", "Revisar"))
                 pais = st.text_input("PAIS", value=d.get("pais", ""))
-                telefono = st.text_input("TELEFONO", value=d.get("telefono", "Revisar"))
+                telefono = st.text_input("TELEFONO", value=d.get("telefono", "Revisar")) if "Solo Accionar" not in tipo_proceso else d.get("telefono", "")
                 if es_influencer:
                     seguidores = st.text_input("SEGUIDORES", value=d.get("seguidores", ""))
                 else:
@@ -189,8 +238,12 @@ def main():
                     break
             fraude = st.selectbox("FRAUDE", options=opciones_fraude, index=idx_fraude)
             
-            problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
-            ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
+            if "Solo Accionar" not in tipo_proceso:
+                problema = st.text_area("PROBLEMA", value=d.get("motivo_reclamo", ""), height=80)
+                ccr3 = st.text_input("CCR3", value=d.get("ccr3", ""))
+            else:
+                problema = d.get("motivo_reclamo", "")
+                ccr3 = d.get("ccr3", "")
             
             # Validación Influencer
             val_seguidores_str = str(seguidores).strip().lower()
@@ -479,6 +532,7 @@ def main():
                 if incluir_contactos:
                     try:
                         def_contactos = int(str(dfin.get("numeros", "1")).strip())
+                        def_contactos = max(0, min(def_contactos, 10))
                     except ValueError:
                         def_contactos = 1
                         
@@ -655,6 +709,12 @@ def main():
                                     st.session_state["doc_generado_flag"] = True
                                     st.success(f"📄 ¡Documento generado con éxito! [Abrir Google Doc]({doc_link})")
                                     st.balloons()
+                                    
+                                    # Actualizar repositorio si viene de ahí
+                                    if "repositorio_row_idx" in st.session_state:
+                                        from google_services import actualizar_link_post_repositorio
+                                        actualizar_link_post_repositorio(st.session_state["repositorio_row_idx"], doc_link)
+                                        st.success("✅ Link de postmortem actualizado en el Repositorio.")
                                 else:
                                     st.warning("⚠️ No se pudo generar el documento por el error de almacenamiento, pero tus datos sí fueron procesados.")
                         except Exception as e:
@@ -723,6 +783,13 @@ def main():
                         if exito_sheet:
                             st.session_state["accionar_generado_flag"] = True
                             st.success("✅ Registro guardado exitosamente en la pestaña REGISTRO del Google Sheet corporativo.")
+                            
+                            # Actualizar repositorio si viene de ahí
+                            if "repositorio_row_idx" in st.session_state:
+                                from google_services import actualizar_estado_accion_repositorio
+                                actualizar_estado_accion_repositorio(st.session_state["repositorio_row_idx"])
+                                st.success("✅ Estado de acción actualizado en el Repositorio.")
+                                
                     st.success("📄 ¡Datos guardados! Revisa las listas en la parte superior.")
                 else:
                     st.success("✅ Registro guardado exitosamente. Revisa las listas en la parte superior.")
