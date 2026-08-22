@@ -32,6 +32,16 @@ def main():
         st.session_state.uploader_key += 1 # Resetea físicamente las imágenes subidas
         st.cache_data.clear()
         st.rerun()
+        
+    if st.sidebar.button("📂 Abrir Repositorio"):
+        # Limpiar todas las variables y setear el proceso al repositorio
+        for key in list(st.session_state.keys()):
+            if key not in ["logged_in", "user_email", "uploader_key"]:
+                del st.session_state[key]
+        st.session_state.uploader_key += 1
+        st.session_state["tipo_proceso_global"] = "Repositorio (Leer de Google Sheets)"
+        st.cache_data.clear()
+        st.rerun()
 
     with st.sidebar:
         st.markdown("## 📊 Métricas de Operación")
@@ -79,7 +89,7 @@ def main():
 
     st.title("Generador Automático de Postmortems")
     
-    opciones_proceso = ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)", "Repositorio (Leer de Google Sheets)"]
+    opciones_proceso = ["Postmortem Completo (Mejorar texto y Google Doc)", "Solo Accionar (Generar Listas Internas)"]
     
     if "tipo_proceso_global" not in st.session_state:
         st.session_state["tipo_proceso_global"] = None
