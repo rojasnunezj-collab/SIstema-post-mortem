@@ -556,7 +556,6 @@ def main():
                     cantidad_contactos = st.number_input("NÚMERO DE CONTACTOS", min_value=0, max_value=10, value=def_contactos)
                     
                     from google_services import obtener_criterios_evaluacion
-                    from gemini_api import evaluar_interaccion_gemini
                     
                     comunicacion_data, gestion_data = obtener_criterios_evaluacion()
                     
