@@ -924,7 +924,7 @@ def actualizar_estado_accion_repositorio(row_idx):
         client = gspread.authorize(creds)
         doc = client.open_by_key('14CDGh43bHesHpl_4oNtRK3FEczgw-RSzy9hmvCVBxv8')
         sheet = doc.worksheet('Casos')
-        sheet.update_cell(row_idx, 9, "Terminado") # Columna I
+        sheet.update_cell(row_idx, 9, "Completado") # Columna I
         import streamlit as st
         st.cache_data.clear()
         return True

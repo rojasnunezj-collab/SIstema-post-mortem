@@ -154,11 +154,14 @@ def main():
                             st.session_state["datos_extraidos"] = datos
                             st.session_state["modo_manual"] = False
                             st.session_state["tipo_proceso_real"] = "Solo Accionar" if accion_rep == "Accionar Caso" else "Postmortem Completo"
+                            st.session_state["tipo_proceso_global"] = st.session_state["tipo_proceso_real"]
                             st.session_state["repositorio_row_idx"] = caso_seleccionado["row_idx"]
+                            # Guardamos la imagen descargada en session state para que se muestre en el uploader
                             st.success("✅ ¡Datos extraídos con éxito!")
+                            st.rerun()
     elif tipo_proceso is not None:
 
-        st.write("Sube las capturas del caso para extraer la información.")
+        st.write("Sube capturas adicionales del caso si es necesario.")
         uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
         if uploaded_files:
@@ -602,22 +605,34 @@ def main():
                                 nombre = ag["agente"].strip() if ag["agente"].strip() else "Desconocido"
                                 area = ag["area"].strip() if ag["area"].strip() else "Sin área"
                                 sop = ag["sop"]
-                                agentes_str_parts.append(f"{nombre} - {area} - {sop}")
+                                if "bot" in nombre.lower():
+                                    agentes_str_parts.append(nombre)
+                                else:
+                                    agentes_str_parts.append(f"{nombre} - {area} - {sop}")
                             agentes_info = ", ".join(agentes_str_parts)
                             
                             st.markdown("**Análisis y Transcripción**")
                             transcripcion = st.text_area(f"Transcripción del chat (C{i})", height=150, key=f"transc_c{i}")
                             
-                            if st.button(f"🤖 Analizar Interacción (Extraer OMs y Resumen) C{i}", key=f"btn_analizar_c{i}"):
-                                if transcripcion:
-                                    with st.spinner("Analizando con Gemini..."):
-                                        # Le pasamos todos los agentes para que los evalúe
-                                        resultado = evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agentes_info)
-                                        st.session_state[f"om_c{i}"] = resultado
-                                        if "resumen" in resultado:
-                                            st.session_state[f"resumen_c{i}"] = resultado["resumen"]
-                                else:
-                                    st.warning("Pega la transcripción para analizar.")
+                            col_a1, col_a2 = st.columns(2)
+                            with col_a1:
+                                if st.button(f"🤖 Extraer OMs C{i}", key=f"btn_analizar_c{i}"):
+                                    if transcripcion:
+                                        with st.spinner("Extrayendo OMs..."):
+                                            from gemini_api import evaluar_oms_gemini
+                                            resultado = evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agentes_info)
+                                            st.session_state[f"om_c{i}"] = resultado
+                                    else:
+                                        st.warning("Pega la transcripción para analizar.")
+                            with col_a2:
+                                if st.button(f"📝 Analizar Interacción C{i}", key=f"btn_resumen_c{i}"):
+                                    if transcripcion:
+                                        with st.spinner("Generando Resumen..."):
+                                            from gemini_api import evaluar_resumen_gemini
+                                            res = evaluar_resumen_gemini(transcripcion)
+                                            st.session_state[f"resumen_c{i}"] = res
+                                    else:
+                                        st.warning("Pega la transcripción para analizar la interacción.")
                             
                             om_data = st.session_state.get(f"om_c{i}", {})
                             
@@ -797,9 +812,10 @@ def main():
                             # Actualizar repositorio si viene de ahí
                             if "repositorio_row_idx" in st.session_state:
                                 from google_services import actualizar_estado_accion_repositorio
-                                actualizar_estado_accion_repositorio(st.session_state["repositorio_row_idx"])
-                                st.success("✅ Estado de acción actualizado en el Repositorio.")
-                                
+                                if actualizar_estado_accion_repositorio(st.session_state["repositorio_row_idx"]):
+                                    st.success("✅ Estado de acción actualizado en el Repositorio.")
+                                else:
+                                    st.error("❌ Error al actualizar el estado en el Repositorio.")
                     st.success("📄 ¡Datos guardados! Revisa las listas en la parte superior.")
                 else:
                     st.success("✅ Registro guardado exitosamente. Revisa las listas en la parte superior.")

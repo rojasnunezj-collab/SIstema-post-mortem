@@ -162,29 +162,22 @@ def extraer_datos_gemini(imagenes_pil):
             st.error(f"❌ Error interno: {e}")
         return None
 
-def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):
-    """
-    Evalúa una transcripción de chat con un cliente usando los criterios de las hojas de Google Sheets.
-    comunicacion_data: Lista de filas de la pestaña 'errores de comunicacion'.
-    gestion_data: Lista de filas de la pestaña 'error de gestion'.
-    agente_c: Nombre del agente. Si es 'bot', se omiten las OM.
-    """
+def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):
     api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
     if not api_key:
-        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "om4": "No API Key", "resumen": transcripcion[:100]}
+        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "om4": "No API Key"}
         
     modelo_seguro = obtener_modelo_valido(api_key.strip())
     if not modelo_seguro:
-        return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
+        return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "om4": "Error"}
         
-    # Extraer las descripciones de las columnas requeridas (Col C para comunicacion, Col B para gestion)
     lista_comunicacion = []
-    for fila in comunicacion_data[1:]: # Saltar header
+    for fila in comunicacion_data[1:]:
         if len(fila) >= 3 and fila[2].strip():
             lista_comunicacion.append(fila[2].strip())
             
     lista_gestion = []
-    for fila in gestion_data[1:]: # Saltar header
+    for fila in gestion_data[1:]:
         if len(fila) >= 2 and fila[1].strip():
             lista_gestion.append(fila[1].strip())
             
@@ -212,17 +205,11 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
     TRANSCRIPCIÓN:
     {transcripcion}
     
-    TAREAS:
-    1. RESUMEN: Elabora un resumen narrativo de toda la conversación. Resume la interacción de principio a fin, asegurándote de incluir:
-       - El motivo EXACTO del contacto.
-       - El problema detallado del cliente.
-       - La respuesta y gestión de los agentes.
-       NO te limites a cortar el texto, debes procesarlo y resumirlo en un párrafo coherente y completo.
-       Asigna este resumen a la clave 'resumen'.
-    2. Evaluación de Oportunidades de Mejora (OM):
+    TAREA:
+    Evaluación de Oportunidades de Mejora (OM):
     {instrucciones_om}
        
-    Devuelve ÚNICAMENTE un JSON válido con las claves "resumen", "om1", "om2", "om3" y "om4".
+    Devuelve ÚNICAMENTE un JSON válido con las claves "om1", "om2", "om3" y "om4".
     """
     
     try:
@@ -243,21 +230,55 @@ def evaluar_interaccion_gemini(transcripcion, comunicacion_data, gestion_data, a
             end = raw_text.rfind('}')
             if end != -1:
                 parsed_json = json.loads(raw_text[:end+1], strict=False)
-                # Normalizar claves a minúsculas
                 parsed_json = {k.lower(): v for k, v in parsed_json.items()}
                 
-                # Asegurar que todas las claves existan
                 for key in ["om1", "om2", "om3", "om4"]:
                     if key not in parsed_json or not parsed_json[key]:
                         parsed_json[key] = "no aplica"
-                if "resumen" not in parsed_json:
-                    parsed_json["resumen"] = "No se pudo resumir."
                 return parsed_json
                 
-        return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
+        return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "om4": "Error"}
     except Exception as e:
         error_msg = str(e)
         if '429' in error_msg or 'Quota' in error_msg:
-            friendly_msg = "⚠️ Has alcanzado el límite de uso gratuito de la IA. Espera un momento."
-            return {"om1": friendly_msg, "om2": "No aplica", "om3": "No aplica", "om4": "No aplica", "resumen": "Error de cuota en API."}
-        return {"om1": f"Error: {error_msg}", "om2": "Error", "om3": "Error", "om4": "Error", "resumen": transcripcion[:100]}
+            friendly_msg = "⚠️ Límite de uso API."
+            return {"om1": friendly_msg, "om2": "No aplica", "om3": "No aplica", "om4": "No aplica"}
+        return {"om1": f"Error: {error_msg}", "om2": "Error", "om3": "Error", "om4": "Error"}
+
+def evaluar_resumen_gemini(transcripcion):
+    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+    if not api_key:
+        return "No API Key"
+        
+    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    if not modelo_seguro:
+        return "Error Modelo"
+        
+    prompt = f"""
+    Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
+    
+    TRANSCRIPCIÓN:
+    {transcripcion}
+    
+    TAREA:
+    Elabora un resumen narrativo de toda la conversación de principio a fin, asegurándote de incluir:
+    - El motivo EXACTO del contacto.
+    - El problema detallado del cliente.
+    - La respuesta y gestión de los agentes.
+    NO te limites a cortar el texto, debes procesarlo y resumirlo en un párrafo coherente y completo.
+    """
+    
+    try:
+        model = genai.GenerativeModel(modelo_seguro)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1
+            )
+        )
+        return response.text.strip()
+    except Exception as e:
+        error_msg = str(e)
+        if '429' in error_msg or 'Quota' in error_msg:
+            return "⚠️ Has alcanzado el límite de uso gratuito de la IA. Espera un momento."
+        return f"Error: {error_msg}"
