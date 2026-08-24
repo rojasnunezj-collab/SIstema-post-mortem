@@ -134,34 +134,24 @@ def main():
                 if sel: caso_seleccionado = opciones[sel]
                 
         if caso_seleccionado:
-            if st.button("Procesar Caso (Extraer con Gemini)", type="primary"):
-                with st.spinner("Descargando imagen y analizando..."):
+            if st.button("Cargar Imagen del Repositorio", type="primary"):
+                with st.spinner("Descargando imagen del caso..."):
                     img = descargar_imagen_drive(caso_seleccionado["img_link"])
                     if not img:
                         st.error("No se pudo descargar la imagen del Drive. Revisa el link.")
                     else:
-                        st.image(img, caption="Imagen del caso", use_container_width=True)
-                        from gemini_api import extraer_datos_gemini
-                        datos = extraer_datos_gemini([img])
-                        if datos:
-                            datos["fin_accion"] = datos.get("ultima_interaccion", "")
-                            # Forzar datos del sheet
-                            if caso_seleccionado["caso"]: datos["caso"] = caso_seleccionado["caso"]
-                            if caso_seleccionado["order_id"]: datos["order_id"] = caso_seleccionado["order_id"]
-                            if caso_seleccionado["user_id"]: datos["user_id"] = caso_seleccionado["user_id"]
-                            if caso_seleccionado["pais"]: datos["pais"] = caso_seleccionado["pais"]
-                            
-                            st.session_state["datos_extraidos"] = datos
-                            st.session_state["modo_manual"] = False
-                            st.session_state["tipo_proceso_real"] = "Solo Accionar" if accion_rep == "Accionar Caso" else "Postmortem Completo"
-                            st.session_state["tipo_proceso_global"] = st.session_state["tipo_proceso_real"]
-                            st.session_state["repositorio_row_idx"] = caso_seleccionado["row_idx"]
-                            # Guardamos la imagen descargada en session state para que se muestre en el uploader
-                            st.success("✅ ¡Datos extraídos con éxito!")
-                            st.rerun()
+                        st.session_state["repo_image"] = img
+                        st.session_state["repo_data"] = caso_seleccionado
+                        st.session_state["tipo_proceso_real"] = "Solo Accionar" if accion_rep == "Accionar Caso" else "Postmortem Completo"
+                        st.session_state["tipo_proceso_global"] = st.session_state["tipo_proceso_real"]
+                        st.rerun()
     elif tipo_proceso is not None:
 
-        st.write("Sube capturas adicionales del caso si es necesario.")
+        if "repo_image" in st.session_state:
+            st.write("🖼️ **Imagen principal del repositorio:**")
+            st.image(st.session_state["repo_image"], use_container_width=True)
+
+        st.write("Sube capturas adicionales del caso si es necesario (o principales si no usas repo).")
         uploaded_files = st.file_uploader("Sube las capturas de pantalla", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
 
         if uploaded_files:
@@ -174,11 +164,15 @@ def main():
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("Extraer Datos (Gemini AI)", type="primary", use_container_width=True):
-                if not uploaded_files:
-                    st.warning("⚠️ Sube al menos una imagen para usar la extracción automática.")
+                if not uploaded_files and "repo_image" not in st.session_state:
+                    st.warning("⚠️ Sube o carga al menos una imagen para usar la extracción automática.")
                 else:
                     with st.spinner("Analizando las imágenes..."):
-                        imagenes_pil = [Image.open(f) for f in uploaded_files]
+                        imagenes_pil = []
+                        if "repo_image" in st.session_state:
+                            imagenes_pil.append(st.session_state["repo_image"])
+                        if uploaded_files:
+                            imagenes_pil.extend([Image.open(f) for f in uploaded_files])
                         
                         from gemini_api import extraer_datos_gemini
                         datos = extraer_datos_gemini(imagenes_pil)
@@ -186,6 +180,16 @@ def main():
                         if datos:
                             # Pasamos el tiempo deducido directamente al fin de acción
                             datos["fin_accion"] = datos.get("ultima_interaccion", "")
+                            
+                            # Inyectar data del repo si existe
+                            if "repo_data" in st.session_state:
+                                r_data = st.session_state["repo_data"]
+                                if r_data.get("caso"): datos["caso"] = r_data["caso"]
+                                if r_data.get("order_id"): datos["order_id"] = r_data["order_id"]
+                                if r_data.get("user_id"): datos["user_id"] = r_data["user_id"]
+                                if r_data.get("pais"): datos["pais"] = r_data["pais"]
+                                st.session_state["repositorio_row_idx"] = r_data["row_idx"]
+                                
                             st.session_state["datos_extraidos"] = datos
                             st.session_state["modo_manual"] = False
                             st.success("✅ ¡Datos extraídos con éxito!")
