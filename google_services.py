@@ -420,6 +420,35 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{CONTACTO_GURU}}": datos.get("contacto_guru", "")
         }
         
+        import collections
+        om_counter = collections.Counter()
+        has_bot = False
+        
+        for c_data in datos_contactos:
+            if "bot" in c_data.get("agentes_info", "").lower():
+                has_bot = True
+            for k in ["om1", "om2", "om3", "om4"]:
+                val = c_data.get(k, "").strip()
+                if val and val.lower() != "no aplica" and val != "@@BOT_NO_APLICA@@":
+                    om_counter[val] += 1
+                    
+        num_contactos = len(datos_contactos)
+        
+        if num_contactos == 0 or has_bot:
+            variables["{{OM1}}"] = "No aplica"
+            variables["{{OM2}}"] = ""
+        else:
+            most_common = om_counter.most_common(2)
+            if len(most_common) >= 1:
+                variables["{{OM1}}"] = most_common[0][0]
+                if len(most_common) >= 2:
+                    variables["{{OM2}}"] = most_common[1][0]
+                else:
+                    variables["{{OM2}}"] = ""
+            else:
+                variables["{{OM1}}"] = "No aplica"
+                variables["{{OM2}}"] = ""
+        
         # 2.1 Preparar reemplazos para los bloques de contactos
         MAX_CONTACTS = 8
         for i in range(1, MAX_CONTACTS + 1):
@@ -941,6 +970,7 @@ def actualizar_link_post_repositorio(row_idx, link):
         client = gspread.authorize(creds)
         doc = client.open_by_key('14CDGh43bHesHpl_4oNtRK3FEczgw-RSzy9hmvCVBxv8')
         sheet = doc.worksheet('Casos')
+        sheet.update_cell(row_idx, 11, "Terminado") # Columna K
         sheet.update_cell(row_idx, 12, link) # Columna L
         import streamlit as st
         st.cache_data.clear()
