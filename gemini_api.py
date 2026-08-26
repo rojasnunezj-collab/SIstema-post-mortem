@@ -157,10 +157,11 @@ def extraer_datos_gemini(imagenes_pil):
         return None
         
     except Exception as e:
-        if '429' in str(e) or 'Quota' in str(e):
-            st.error("⚠️ Has alcanzado el límite de uso gratuito de la IA (Gemini API). Por favor, espera 1 minuto o actualiza tu cuota.")
+        error_msg = str(e)
+        if '429' in error_msg or 'Quota' in error_msg:
+            st.error(f"⚠️ Has alcanzado el límite de uso de la IA. Detalle del bloqueo: {error_msg}")
         else:
-            st.error(f"❌ Error interno: {e}")
+            st.error(f"❌ Error interno: {error_msg}")
         return None
 
 def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):

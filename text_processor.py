@@ -123,7 +123,7 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                     time.sleep(2)
                     continue
                 if "429" in error_msg or "Quota" in error_msg:
-                    return reporte_cliente, analisis_caso, resolucion_caso, "⚠️ Has alcanzado el límite de uso gratuito de la IA. Por favor, espera un momento."
+                    return reporte_cliente, analisis_caso, resolucion_caso, f"⚠️ Bloqueo de cuota de IA. Detalle: {error_msg}"
             return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {error_msg}"
             
     return reporte_cliente, analisis_caso, resolucion_caso, "No se pudo mejorar el texto después de varios intentos."
