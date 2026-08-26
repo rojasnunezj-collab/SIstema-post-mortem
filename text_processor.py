@@ -5,35 +5,32 @@ import google.generativeai as genai
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_modelo_valido(api_key):
-    """Encuentra el mejor modelo disponible probando máximo 3 opciones para evitar el límite de cuota y evadir 404s."""
+    """Encuentra el mejor modelo disponible de forma rápida sin agotar cuota ni demorar la ejecución."""
     genai.configure(api_key=api_key)
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    except Exception:
-        modelos = ["models/gemini-1.5-flash", "models/gemini-pro"]
-
-    # Excluir modelos experimentales o que tienen cuota muy baja (ej. 2.5, 3.6, 3.7)
-    modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m and "3.7" not in m]
-    
-    # Preferir siempre la versión 1.5 que tiene 1500 peticiones diarias gratuitas
-    flash = [m for m in modelos_seguros if '1.5-flash' in m.lower()] + [m for m in modelos_seguros if 'flash' in m.lower() and '1.5-flash' not in m.lower()]
-    otros = [m for m in modelos_seguros if 'flash' not in m.lower()]
-    
-    # Solo probamos máximo 3 candidatos para NO agotar tu cuota de API por minuto
-    candidatos = (flash[:2] + otros[:1]) if flash else otros[:3]
-    
-    if not candidatos:
-        candidatos = ["models/gemini-pro"] # Fallback histórico indestructible
         
-    for m in candidatos:
-        try:
-            model = genai.GenerativeModel(m)
-            if model.generate_content("a"): # Prueba súper ligera
+        # Excluir modelos experimentales o muy recientes si suelen fallar por cuota
+        modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m and "3.7" not in m]
+        
+        # Preferir siempre gemini-1.5-flash
+        for m in modelos_seguros:
+            if "1.5-flash" in m.lower():
                 return m
-        except Exception:
-            continue
-            
-    return candidatos[0]
+        
+        # Fallback a otro flash
+        for m in modelos_seguros:
+            if "flash" in m.lower():
+                return m
+                
+        # Fallback a pro
+        for m in modelos_seguros:
+            if "pro" in m.lower():
+                return m
+                
+        return modelos_seguros[0] if modelos_seguros else "models/gemini-1.5-flash"
+    except Exception:
+        return "models/gemini-1.5-flash"
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
@@ -99,8 +96,11 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                 )
             )
             
-            raw_text = response.text.replace("```json", "").replace("```", "").strip()
-            
+            try:
+                raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            except ValueError:
+                return reporte_cliente, analisis_caso, resolucion_caso, "La IA no pudo generar el texto (posible bloqueo por seguridad o formato)."
+                
             start = raw_text.find('{')
             if start != -1:
                 raw_text = raw_text[start:]
