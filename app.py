@@ -422,11 +422,19 @@ def main():
                 analisis_caso = st.text_area("2. Análisis del caso que se hizo:", height=80, placeholder="Escribe aquí tu análisis del caso...")
                 resolucion_caso = st.text_area("3. Resolución del caso (Explicación adicional):", height=80, placeholder="Escribe aquí cómo se resolvió de forma narrativa...")
                 
-                label_btn = "Mejorar Textos y Continuar"
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    btn_accion = st.button("✨ Mejorar Textos (IA) y Continuar", type="primary", use_container_width=True)
+                with col_b2:
+                    btn_sin_ia = st.button("Continuar sin Mejorar (Rápido)", type="secondary", use_container_width=True)
+                    
+                accion_continuar = btn_accion or btn_sin_ia
+                usar_ia = btn_accion
             else:
-                label_btn = "Generar Listas de Accionar"
+                accion_continuar = st.button("Generar Listas de Accionar", type="primary")
+                usar_ia = False
             
-            if st.button(label_btn, type="primary"):
+            if accion_continuar:
                 # Save data to session
                 st.session_state["datos_finales"] = {
                     "numero_caso": d.get("numero_caso", ""),
@@ -465,21 +473,27 @@ def main():
                 st.session_state["borrador"] = (reporte_cliente, analisis_caso, resolucion_caso)
                 
                 if "Postmortem Completo" in tipo_proceso:
-                    with st.spinner("Mejorando redacción del borrador..."):
-                        from text_processor import mejorar_redaccion
-                        if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
-                            resultado_mejora = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
-                            if len(resultado_mejora) == 4:
-                                rep_limpio, ana_limpio, res_limpia, warning_msg = resultado_mejora
+                    if usar_ia:
+                        with st.spinner("Mejorando redacción del borrador..."):
+                            from text_processor import mejorar_redaccion
+                            if reporte_cliente.strip() or analisis_caso.strip() or resolucion_caso.strip():
+                                resultado_mejora = mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais)
+                                if len(resultado_mejora) == 4:
+                                    rep_limpio, ana_limpio, res_limpia, warning_msg = resultado_mejora
+                                else:
+                                    rep_limpio, ana_limpio, res_limpia = resultado_mejora[:3]
+                                    warning_msg = None
+                                    
+                                if warning_msg:
+                                    st.session_state["warning_mejora"] = warning_msg
                             else:
-                                rep_limpio, ana_limpio, res_limpia = resultado_mejora[:3]
-                                warning_msg = None
-                                
-                            if warning_msg:
-                                st.session_state["warning_mejora"] = warning_msg
-                        else:
-                            rep_limpio, ana_limpio, res_limpia = "", "", ""
-                        st.session_state["textos_mejorados"] = (rep_limpio, ana_limpio, res_limpia)
+                                rep_limpio, ana_limpio, res_limpia = "", "", ""
+                            st.session_state["textos_mejorados"] = (rep_limpio, ana_limpio, res_limpia)
+                    else:
+                        # Si elige continuar sin IA, simplemente usamos los textos originales
+                        st.session_state["textos_mejorados"] = (reporte_cliente, analisis_caso, resolucion_caso)
+                        if "warning_mejora" in st.session_state:
+                            del st.session_state["warning_mejora"]
                 
                 st.session_state["step"] = 2
                 st.rerun()
