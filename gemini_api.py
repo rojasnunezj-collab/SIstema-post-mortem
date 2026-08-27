@@ -47,6 +47,7 @@ def obtener_modelo_valido():
             ("us-east4", "gemini-1.5-flash")
         ]
         
+        errores_ocultos = []
         for loc, mod in combinaciones:
             try:
                 vertexai.init(project="postmortem-503102", location=loc, credentials=credentials)
@@ -57,10 +58,13 @@ def obtener_modelo_valido():
                 msg.empty()
                 return mod
             except Exception as e:
+                errores_ocultos.append(f"[{loc}] {mod}: {e}")
                 continue
                 
         msg.empty()
-        st.error("❌ Ningún modelo funcionó en ninguna región.")
+        st.error("❌ Ningún modelo funcionó en ninguna región. Detalles de los errores:")
+        for err in errores_ocultos:
+            st.write(err)
         return None
     except Exception as e:
         st.error(f"Error cargando credenciales: {e}")
