@@ -10,9 +10,24 @@ def obtener_modelo_valido(api_key):
     genai.configure(api_key=api_key)
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        return next((m for m in modelos if 'flash' in m), modelos[0])
+        
+        # El algoritmo original fallaba porque elegía el 2.5 que está deprecado. 
+        # Buscamos específicamente el 3.6 recomendado por el error, o el 1.5.
+        for m in modelos:
+            if "3.6-flash" in m:
+                return m
+        for m in modelos:
+            if "1.5-flash" in m:
+                return m
+                
+        # Fallback al primero que diga flash y NO sea 2.5
+        for m in modelos:
+            if "flash" in m and "2.5" not in m:
+                return m
+                
+        return "models/gemini-3.6-flash"
     except Exception:
-        return "models/gemini-1.5-flash"
+        return "models/gemini-3.6-flash"
 
 from google_services import obtener_catalogo_ccr3
 
