@@ -3,70 +3,37 @@ import os
 import json
 import re
 import streamlit as st
-import google.generativeai as genai
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part
 
-def obtener_modelo_valido(api_key):
-    # Si ya tenemos un modelo funcional guardado en la sesión, lo intentamos usar primero.
-    if "modelo_gemini_cache" in st.session_state:
-        return st.session_state["modelo_gemini_cache"]
-
-    genai.configure(api_key=api_key)
+def obtener_modelo_valido():
+    # Vertex AI requiere proyecto y ubicación.
+    # El usuario indicó "vamos a usar vertex como en mis otros proyectos" y su proyecto es postmortem-503102
     try:
-        modelos_crudos = genai.list_models()
-        modelos = [m.name for m in modelos_crudos if 'generateContent' in m.supported_generation_methods]
+        # Intentamos usar las credenciales de streamlit secrets si existen
+        if "gcp_service_account" in st.secrets:
+            with open("service_account.json", "w") as f:
+                json.dump(dict(st.secrets["gcp_service_account"]), f)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service_account.json"
     except Exception:
-        modelos = ["models/gemini-3.6-flash", "models/gemini-1.5-flash"]
-        
-    # Ordenar: preferir 3.6, luego 1.5, ignorar 2.5
-    preferidos = []
-    for m in modelos:
-        if "3.6-flash" in m: preferidos.append(m)
-    for m in modelos:
-        if "1.5-flash" in m: preferidos.append(m)
-    for m in modelos:
-        if "flash" in m and "2.5" not in m and m not in preferidos: preferidos.append(m)
-        
-    if not preferidos:
-        preferidos = ["models/gemini-1.5-flash"]
+        pass
 
-    msg_placeholder = st.empty()
-    msg_placeholder.info("⏳ Buscando IA disponible...")
-    
-    modelo_elegido = preferidos[0]
-    for m in preferidos:
-        try:
-            test_model = genai.GenerativeModel(m)
-            # Prueba rápida
-            test_model.generate_content("a")
-            modelo_elegido = m
-            break
-        except Exception:
-            continue
-            
-    msg_placeholder.empty()
-    # Guardamos en sesión el modelo que funcionó (o el de respaldo si todos fallan por cuota)
-    st.session_state["modelo_gemini_cache"] = modelo_elegido
-    return modelo_elegido
+    try:
+        vertexai.init(project="postmortem-503102", location="us-central1")
+    except Exception as e:
+        st.error(f"Error inicializando Vertex AI: {e}")
+
+    # En Vertex, el nombre de los modelos es ligeramente distinto, usualmente gemini-1.5-flash-001 o gemini-1.5-flash
+    # Retornamos el modelo estándar
+    return "gemini-1.5-flash"
 
 from google_services import obtener_catalogo_ccr3
 
 def extraer_datos_gemini(imagenes_pil):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    
-    if not api_key:
-        st.error("⚠️ No se encontró la API Key.")
-        return None
-        
-    try:
-        genai.configure(api_key=api_key.strip())
-    except Exception as e:
-        st.error(f"❌ Error API: {e}")
-        return None
-    
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    modelo_seguro = obtener_modelo_valido()
     
     if not modelo_seguro:
-        st.error("❌ Ningún modelo en tu API Key funcionó o todos devolvieron error 404.")
+        st.error("❌ No se pudo encontrar un modelo de Vertex AI.")
         return None
         
     # Obtener CCR3 dinámicamente
@@ -123,7 +90,8 @@ def extraer_datos_gemini(imagenes_pil):
     
     try:
         from PIL import Image
-        model = genai.GenerativeModel(modelo_seguro)
+        import io
+        model = GenerativeModel(modelo_seguro)
         
         # Enviamos el prompt seguido de TODAS las imágenes en la lista (optimizadas)
         contenido = [prompt]
@@ -137,14 +105,14 @@ def extraer_datos_gemini(imagenes_pil):
                 ratio = max_size / float(max(img.size))
                 new_size = (int(img.width * ratio), int(img.height * ratio))
                 img = img.resize(new_size, Image.Resampling.LANCZOS)
-            contenido.append(img)
+            
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='JPEG')
+            contenido.append(Part.from_data(data=img_byte_arr.getvalue(), mime_type="image/jpeg"))
             
         response = model.generate_content(
             contenido,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                response_mime_type="application/json"
-            )
+            generation_config={"temperature": 0.1, "response_mime_type": "application/json"}
         )
         
         try:
@@ -162,7 +130,7 @@ def extraer_datos_gemini(imagenes_pil):
                 try:
                     parsed_json = json.loads(raw_text[:end+1], strict=False)
                     parsed_json = {k.lower(): v for k, v in parsed_json.items()}
-                    st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🕵️‍♂️")
+                    st.toast(f"✅ ¡Datos extraídos con éxito usando Vertex AI ({modelo_seguro})!", icon="🕵️‍♂️")
                     return parsed_json
                 except json.JSONDecodeError:
                     end = raw_text.rfind('}', 0, end)
@@ -174,18 +142,11 @@ def extraer_datos_gemini(imagenes_pil):
         if "modelo_gemini_cache" in st.session_state:
             del st.session_state["modelo_gemini_cache"]
         error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            st.error(f"⚠️ Has alcanzado el límite de uso de la IA. Detalle del bloqueo: {error_msg}")
-        else:
-            st.error(f"❌ Error interno: {error_msg}")
+        st.error(f"❌ Error con Vertex AI: {error_msg}")
         return None
 
 def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    if not api_key:
-        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "om4": "No API Key"}
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
         return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "om4": "Error"}
         
@@ -231,13 +192,10 @@ def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=
     """
     
     try:
-        model = genai.GenerativeModel(modelo_seguro)
+        model = GenerativeModel(modelo_seguro)
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                response_mime_type="application/json"
-            )
+            generation_config={"temperature": 0.1, "response_mime_type": "application/json"}
         )
         
         try:
@@ -264,17 +222,10 @@ def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=
         if "modelo_gemini_cache" in st.session_state:
             del st.session_state["modelo_gemini_cache"]
         error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            friendly_msg = "⚠️ Límite de uso API."
-            return {"om1": friendly_msg, "om2": "No aplica", "om3": "No aplica", "om4": "No aplica"}
         return {"om1": f"Error: {error_msg}", "om2": "Error", "om3": "Error", "om4": "Error"}
 
 def evaluar_resumen_gemini(transcripcion):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    if not api_key:
-        return "No API Key"
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
         return "Error Modelo"
         
@@ -293,19 +244,16 @@ def evaluar_resumen_gemini(transcripcion):
     """
     
     try:
-        model = genai.GenerativeModel(modelo_seguro)
+        model = GenerativeModel(modelo_seguro)
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1
-            )
+            generation_config={"temperature": 0.1}
         )
         try:
             return response.text.strip()
         except ValueError:
             return "El modelo no pudo generar un resumen (posible bloqueo por seguridad)."
     except Exception as e:
-        error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            return "⚠️ Has alcanzado el límite de uso gratuito de la IA. Espera un momento."
-        return f"Error: {error_msg}"
+        if "modelo_gemini_cache" in st.session_state:
+            del st.session_state["modelo_gemini_cache"]
+        return f"Error API: {e}"
