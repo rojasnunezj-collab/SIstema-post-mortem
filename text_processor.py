@@ -25,7 +25,7 @@ def obtener_modelo_valido():
     except Exception as e:
         st.error(f"Error cargando credenciales de Vertex AI: {e}")
 
-    return "gemini-1.5-flash"
+    return "gemini-1.5-flash-001"
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
