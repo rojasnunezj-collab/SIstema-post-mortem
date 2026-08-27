@@ -25,7 +25,7 @@ def obtener_modelo_valido():
     except Exception as e:
         st.error(f"Error cargando credenciales de Vertex AI: {e}")
 
-    return "gemini-1.5-flash-001"
+    return "gemini-1.5-flash-002"
 
 from google_services import obtener_catalogo_ccr3
 
