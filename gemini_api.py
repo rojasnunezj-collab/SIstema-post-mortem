@@ -7,24 +7,19 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 
 def obtener_modelo_valido():
-    # Vertex AI requiere proyecto y ubicación.
-    # El usuario indicó "vamos a usar vertex como en mis otros proyectos" y su proyecto es postmortem-503102
     try:
-        # Intentamos usar las credenciales de streamlit secrets si existen
+        from google.oauth2 import service_account
         if "gcp_service_account" in st.secrets:
-            with open("service_account.json", "w") as f:
-                json.dump(dict(st.secrets["gcp_service_account"]), f)
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service_account.json"
-    except Exception:
-        pass
-
-    try:
-        vertexai.init(project="postmortem-503102", location="us-central1")
+            cred_dict = dict(st.secrets["gcp_service_account"])
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            credentials = service_account.Credentials.from_service_account_info(cred_dict)
+            vertexai.init(project="postmortem-503102", location="us-central1", credentials=credentials)
+        else:
+            vertexai.init(project="postmortem-503102", location="us-central1")
     except Exception as e:
-        st.error(f"Error inicializando Vertex AI: {e}")
+        st.error(f"Error cargando credenciales de Vertex AI: {e}")
 
-    # En Vertex, el nombre de los modelos es ligeramente distinto, usualmente gemini-1.5-flash-001 o gemini-1.5-flash
-    # Retornamos el modelo estándar
     return "gemini-1.5-flash"
 
 from google_services import obtener_catalogo_ccr3
