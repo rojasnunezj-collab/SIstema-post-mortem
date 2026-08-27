@@ -3,29 +3,46 @@ import os
 import streamlit as st
 import google.generativeai as genai
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def obtener_modelo_valido(api_key):
+    # Si ya tenemos un modelo funcional guardado en la sesión, lo intentamos usar primero.
+    if "modelo_gemini_cache" in st.session_state:
+        return st.session_state["modelo_gemini_cache"]
+
     genai.configure(api_key=api_key)
     try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        # El algoritmo original fallaba porque elegía el 2.5 que está deprecado. 
-        # Buscamos específicamente el 3.6 recomendado por el error, o el 1.5.
-        for m in modelos:
-            if "3.6-flash" in m:
-                return m
-        for m in modelos:
-            if "1.5-flash" in m:
-                return m
-                
-        # Fallback al primero que diga flash y NO sea 2.5
-        for m in modelos:
-            if "flash" in m and "2.5" not in m:
-                return m
-                
-        return "models/gemini-3.6-flash"
+        modelos_crudos = genai.list_models()
+        modelos = [m.name for m in modelos_crudos if 'generateContent' in m.supported_generation_methods]
     except Exception:
-        return "models/gemini-3.6-flash"
+        modelos = ["models/gemini-3.6-flash", "models/gemini-1.5-flash"]
+        
+    # Ordenar: preferir 3.6, luego 1.5, ignorar 2.5
+    preferidos = []
+    for m in modelos:
+        if "3.6-flash" in m: preferidos.append(m)
+    for m in modelos:
+        if "1.5-flash" in m: preferidos.append(m)
+    for m in modelos:
+        if "flash" in m and "2.5" not in m and m not in preferidos: preferidos.append(m)
+        
+    if not preferidos:
+        preferidos = ["models/gemini-1.5-flash"]
+
+    msg_placeholder = st.empty()
+    msg_placeholder.info("⏳ Buscando IA disponible...")
+    
+    modelo_elegido = preferidos[0]
+    for m in preferidos:
+        try:
+            test_model = genai.GenerativeModel(m)
+            test_model.generate_content("a")
+            modelo_elegido = m
+            break
+        except Exception:
+            continue
+            
+    msg_placeholder.empty()
+    st.session_state["modelo_gemini_cache"] = modelo_elegido
+    return modelo_elegido
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
@@ -111,8 +128,10 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
             if not datos.get("reporte_editado"):
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
             return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", ""), None
-        except Exception as sub_e:
-            error_msg = str(sub_e)
+        except Exception as e:
+            if "modelo_gemini_cache" in st.session_state:
+                del st.session_state["modelo_gemini_cache"]
+            error_msg = str(e)
             if "500" in error_msg or "429" in error_msg or "Quota" in error_msg:
                 if intento < 2:
                     time.sleep(2)
