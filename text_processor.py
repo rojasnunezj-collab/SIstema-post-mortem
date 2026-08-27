@@ -10,7 +10,12 @@ def obtener_modelo_valido():
     try:
         from google.oauth2 import service_account
         if "gcp_service_account" in st.secrets:
-            cred_dict = dict(st.secrets["gcp_service_account"])
+            secret_val = st.secrets["gcp_service_account"]
+            if isinstance(secret_val, str):
+                import json
+                cred_dict = json.loads(secret_val)
+            else:
+                cred_dict = dict(secret_val)
             if "private_key" in cred_dict:
                 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
             credentials = service_account.Credentials.from_service_account_info(cred_dict)
