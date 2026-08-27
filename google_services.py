@@ -56,23 +56,27 @@ def obtener_catalogo_ccr3():
     from config import CCR3_SHEET_ID
     creds = get_credentials()
     if not creds: return []
-    try:
-        client = gspread.authorize(creds)
-        doc = client.open_by_key(CCR3_SHEET_ID)
+    
+    import time
+    for intento in range(3):
         try:
-            sheet = doc.worksheet("Hoja 1")
-        except gspread.WorksheetNotFound:
-            # Si no existe "Hoja 1" (por ejemplo si está en inglés como "Sheet1"), usamos la primera pestaña.
-            sheet = doc.get_worksheet(0)
-            
-        # Asumiendo que la lista está en la columna C (índice 3)
-        valores = sheet.col_values(3)
-        # Filtramos vacíos y encabezados si los hay (saltando la fila 1 si es encabezado)
-        lista = [v.strip() for v in valores[1:] if v.strip()]
-        return lista if lista else ["No se encontraron categorías en la columna C"]
-    except Exception as e:
-        st.error(f"Error leyendo CCR3 de Sheet (ID {CCR3_SHEET_ID}): {e}")
-        return []
+            client = gspread.authorize(creds)
+            doc = client.open_by_key(CCR3_SHEET_ID)
+            try:
+                sheet = doc.worksheet("Hoja 1")
+            except gspread.WorksheetNotFound:
+                sheet = doc.get_worksheet(0)
+                
+            valores = sheet.col_values(3)
+            lista = [v.strip() for v in valores[1:] if v.strip()]
+            return lista if lista else ["No se encontraron categorías en la columna C"]
+        except Exception as e:
+            if "503" in str(e) or "500" in str(e) or "429" in str(e):
+                if intento < 2:
+                    time.sleep(2)
+                    continue
+            st.error(f"Error leyendo CCR3 de Sheet (ID {CCR3_SHEET_ID}): {e}")
+            return []
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_limites_pais():
