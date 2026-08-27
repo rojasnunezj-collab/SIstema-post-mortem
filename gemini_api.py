@@ -106,6 +106,9 @@ def extraer_datos_gemini(imagenes_pil):
                 new_size = (int(img.width * ratio), int(img.height * ratio))
                 img = img.resize(new_size, Image.Resampling.LANCZOS)
             
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+                
             img_byte_arr = io.BytesIO()
             img.save(img_byte_arr, format='JPEG')
             contenido.append(Part.from_data(data=img_byte_arr.getvalue(), mime_type="image/jpeg"))
