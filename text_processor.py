@@ -5,30 +5,10 @@ import google.generativeai as genai
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_modelo_valido(api_key):
-    """Encuentra el mejor modelo disponible de forma rápida sin agotar cuota ni demorar la ejecución."""
     genai.configure(api_key=api_key)
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        # Excluir modelos experimentales o muy recientes si suelen fallar por cuota
-        modelos_seguros = [m for m in modelos if "2.5" not in m and "3.6" not in m and "3.7" not in m]
-        
-        # Preferir siempre gemini-1.5-flash
-        for m in modelos_seguros:
-            if "1.5-flash" in m.lower():
-                return m
-        
-        # Fallback a otro flash
-        for m in modelos_seguros:
-            if "flash" in m.lower():
-                return m
-                
-        # Fallback a pro
-        for m in modelos_seguros:
-            if "pro" in m.lower():
-                return m
-                
-        return modelos_seguros[0] if modelos_seguros else "models/gemini-1.5-flash"
+        return next((m for m in modelos if 'flash' in m), modelos[0])
     except Exception:
         return "models/gemini-1.5-flash"
 
@@ -37,7 +17,7 @@ def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     Reescribe las 3 secciones utilizando una única llamada con JSON Schema forzado.
     Retorna una tupla de 4 strings: (reporte, analisis, resolucion, warning_msg).
     """
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
     
     if not api_key:
         st.error("❌ No se encontró la API Key de Gemini.")
