@@ -21,24 +21,14 @@ def obtener_modelo_valido(api_key):
     
     genai.configure(api_key=api_key.strip())
     
-    errores_ocultos = []
-    for model_name in priority_list:
-        try:
-            model = genai.GenerativeModel(model_name)
-            model.generate_content("test")
-            st.session_state["modelo_gemini_cache"] = model_name
-            msg_placeholder.empty()
-            return model_name
-        except Exception as e:
-            errores_ocultos.append(f"{model_name}: {e}")
-            continue
-            
-    msg_placeholder.empty()
-    st.error("❌ Ningún modelo funcionó. Errores:")
-    for err in errores_ocultos:
-        st.write(err)
-    st.session_state["modelo_gemini_cache"] = "gemini-2.5-flash-preview-09-2025"
-    return "gemini-2.5-flash-preview-09-2025"
+    try:
+        modelos = list(genai.list_models())
+        nombres = [m.name for m in modelos]
+        st.error(f"Modelos disponibles en tu API Key: {nombres}")
+    except Exception as e:
+        st.error(f"Error al listar modelos: {e}")
+        
+    return "gemini-1.5-flash"
 
 from google_services import obtener_catalogo_ccr3
 
