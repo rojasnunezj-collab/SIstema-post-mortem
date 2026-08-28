@@ -11,22 +11,28 @@ def obtener_modelo_valido(api_key):
     msg_placeholder.info("⏳ Buscando IA disponible...")
     
     priority_list = [
-        "gemini-2.5-flash-preview-09-2025",
-        "gemini-robotics-er-1.5-preview",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-001"
+        "models/gemini-3.7-flash",
+        "models/gemini-3.6-flash",
+        "models/gemini-3.5-flash",
+        "models/gemini-2.5-flash",
+        "models/gemini-flash-latest"
     ]
     
     genai.configure(api_key=api_key.strip())
     
-    try:
-        modelos = list(genai.list_models())
-        nombres = [m.name for m in modelos]
-        st.error(f"Modelos disponibles en tu API Key: {nombres}")
-    except Exception as e:
-        st.error(f"Error al listar modelos: {e}")
-        
-    return "gemini-1.5-flash"
+    for model_name in priority_list:
+        try:
+            model = genai.GenerativeModel(model_name)
+            model.generate_content("test")
+            st.session_state["modelo_gemini_cache"] = model_name
+            msg_placeholder.empty()
+            return model_name
+        except Exception:
+            continue
+            
+    msg_placeholder.empty()
+    st.session_state["modelo_gemini_cache"] = priority_list[0]
+    return priority_list[0]
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
