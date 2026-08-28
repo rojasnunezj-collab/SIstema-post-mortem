@@ -11,11 +11,12 @@ def obtener_modelo_valido(api_key):
     msg_placeholder.info("⏳ Buscando IA disponible...")
     
     priority_list = [
-        "models/gemini-3.7-flash",
-        "models/gemini-3.6-flash",
-        "models/gemini-3.5-flash",
-        "models/gemini-2.5-flash",
-        "models/gemini-flash-latest"
+        "models/gemini-3-flash-preview",
+        "models/gemini-3.1-flash-lite-preview",
+        "models/gemini-3.1-flash-lite",
+        "models/gemini-2.5-flash-lite",
+        "models/gemini-flash-lite-latest",
+        "models/nano-banana-pro-preview"
     ]
     
     genai.configure(api_key=api_key.strip())
