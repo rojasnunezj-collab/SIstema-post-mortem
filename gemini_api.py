@@ -6,47 +6,34 @@ import streamlit as st
 import google.generativeai as genai
 
 def obtener_modelo_valido(api_key):
-    # Si ya tenemos un modelo funcional guardado en la sesión, lo intentamos usar primero.
     if "modelo_gemini_cache" in st.session_state:
         return st.session_state["modelo_gemini_cache"]
-
-    genai.configure(api_key=api_key)
-    try:
-        modelos_crudos = genai.list_models()
-        modelos = [m.name for m in modelos_crudos if 'generateContent' in m.supported_generation_methods]
-    except Exception:
-        modelos = ["models/gemini-3.6-flash", "models/gemini-1.5-flash"]
-        
-    # Ordenar: preferir 3.6, luego 1.5, ignorar 2.5
-    preferidos = []
-    for m in modelos:
-        if "3.6-flash" in m: preferidos.append(m)
-    for m in modelos:
-        if "1.5-flash" in m: preferidos.append(m)
-    for m in modelos:
-        if "flash" in m and "2.5" not in m and m not in preferidos: preferidos.append(m)
-        
-    if not preferidos:
-        preferidos = ["models/gemini-1.5-flash"]
 
     msg_placeholder = st.empty()
     msg_placeholder.info("⏳ Buscando IA disponible...")
     
-    modelo_elegido = preferidos[0]
-    for m in preferidos:
+    priority_list = [
+        "models/gemini-1.5-flash",
+        "models/gemini-1.5-flash-8b",
+        "models/gemini-2.5-flash-preview-09-2025",
+        "models/gemini-robotics-er-1.5-preview"
+    ]
+    
+    genai.configure(api_key=api_key.strip())
+    
+    for model_name in priority_list:
         try:
-            test_model = genai.GenerativeModel(m)
-            # Prueba rápida
-            test_model.generate_content("a")
-            modelo_elegido = m
-            break
+            model = genai.GenerativeModel(model_name)
+            model.generate_content("test")
+            st.session_state["modelo_gemini_cache"] = model_name
+            msg_placeholder.empty()
+            return model_name
         except Exception:
             continue
             
     msg_placeholder.empty()
-    # Guardamos en sesión el modelo que funcionó (o el de respaldo si todos fallan por cuota)
-    st.session_state["modelo_gemini_cache"] = modelo_elegido
-    return modelo_elegido
+    st.session_state["modelo_gemini_cache"] = priority_list[0]
+    return priority_list[0]
 
 from google_services import obtener_catalogo_ccr3
 
