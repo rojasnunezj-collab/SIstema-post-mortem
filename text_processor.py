@@ -1,65 +1,32 @@
 # text_processor.py
 import os
+import io
+import json
+import time
 import streamlit as st
-import google.generativeai as genai
-
-def obtener_modelo_valido(api_key):
-    if "modelo_gemini_cache" in st.session_state:
-        return st.session_state["modelo_gemini_cache"]
-
-    msg_placeholder = st.empty()
-    msg_placeholder.info("⏳ Buscando IA disponible...")
-    
-    priority_list = [
-        "models/gemini-3-flash-preview",
-        "models/gemini-3.1-flash-lite-preview",
-        "models/gemini-3.1-flash-lite",
-        "models/gemini-2.5-flash-lite",
-        "models/gemini-flash-lite-latest",
-        "models/nano-banana-pro-preview"
-    ]
-    
-    genai.configure(api_key=api_key.strip())
-    
-    for model_name in priority_list:
-        try:
-            model = genai.GenerativeModel(model_name)
-            model.generate_content("test")
-            st.session_state["modelo_gemini_cache"] = model_name
-            msg_placeholder.empty()
-            return model_name
-        except Exception:
-            continue
-            
-    msg_placeholder.empty()
-    st.session_state["modelo_gemini_cache"] = priority_list[0]
-    return priority_list[0]
+import vertexai
+from vertexai.generative_models import GenerativeModel
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
     Reescribe las 3 secciones utilizando una única llamada con JSON Schema forzado.
     Retorna una tupla de 4 strings: (reporte, analisis, resolucion, warning_msg).
     """
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    
-    if not api_key:
-        st.error("❌ No se encontró la API Key de Gemini.")
-        return reporte_cliente, analisis_caso, resolucion_caso, "API Key no encontrada."
-        
+    # Reutiliza la inicialización de gemini_api para no duplicar código
     try:
-        genai.configure(api_key=api_key.strip())
-    except Exception as e:
-        st.error(f"❌ Error API: {e}")
-        return reporte_cliente, analisis_caso, resolucion_caso, str(e)
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
-    
+        from gemini_api import _init_vertex, obtener_modelo_valido
+    except ImportError:
+        return reporte_cliente, analisis_caso, resolucion_caso, "Error importando módulo gemini_api."
+
+    if not _init_vertex():
+        return reporte_cliente, analisis_caso, resolucion_caso, "Error inicializando Vertex AI."
+
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
-        st.error("❌ Ningún modelo en tu API Key funcionó.")
-        return reporte_cliente, analisis_caso, resolucion_caso, "Error validando el modelo."
-        
+        return reporte_cliente, analisis_caso, resolucion_caso, "No se encontró un modelo de Vertex AI disponible."
+
     regla_wallet = "pedidos ya pagos" if pais.strip().lower() == "argentina" else "wallet o billetera"
-    
+
     prompt = f"""
 Reescribe los siguientes textos (Reporte, Análisis, Resolución) para un documento oficial de Postmortem de atención al cliente.
 
@@ -83,27 +50,20 @@ IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido. El JSON debe tener 
 "reporte_editado", "analisis_editado", "resolucion_editado".
 No agregues comentarios ni comillas invertidas fuera del JSON.
 """
-    
-    import time
-    import json
-    
-    model = genai.GenerativeModel(modelo_seguro)
+
+    model = GenerativeModel(modelo_seguro)
     for intento in range(3):
         try:
             response = model.generate_content(
                 prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1, 
-                    max_output_tokens=2048,
-                    response_mime_type="application/json"
-                )
+                generation_config={"temperature": 0.1, "max_output_tokens": 2048, "response_mime_type": "application/json"}
             )
-            
+
             try:
                 raw_text = response.text.replace("```json", "").replace("```", "").strip()
             except ValueError:
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA no pudo generar el texto (posible bloqueo por seguridad o formato)."
-                
+
             start = raw_text.find('{')
             if start != -1:
                 raw_text = raw_text[start:]
@@ -114,21 +74,20 @@ No agregues comentarios ni comillas invertidas fuera del JSON.
                     return reporte_cliente, analisis_caso, resolucion_caso, "El formato JSON quedó incompleto (sin cierre)."
             else:
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA no devolvió un JSON válido."
-                
-            # Validar que realmente haya hecho cambios y no haya devuelto los originales o un JSON vacío
+
             if not datos.get("reporte_editado"):
                 return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
             return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", ""), None
+
         except Exception as e:
             if "modelo_gemini_cache" in st.session_state:
                 del st.session_state["modelo_gemini_cache"]
+            if "vertex_initialized" in st.session_state:
+                del st.session_state["vertex_initialized"]
             error_msg = str(e)
-            if "500" in error_msg or "429" in error_msg or "Quota" in error_msg:
-                if intento < 2:
-                    time.sleep(2)
-                    continue
-                if "429" in error_msg or "Quota" in error_msg:
-                    return reporte_cliente, analisis_caso, resolucion_caso, f"⚠️ Bloqueo de cuota de IA. Detalle: {error_msg}"
+            if intento < 2:
+                time.sleep(2)
+                continue
             return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {error_msg}"
-            
+
     return reporte_cliente, analisis_caso, resolucion_caso, "No se pudo mejorar el texto después de varios intentos."

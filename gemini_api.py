@@ -1,67 +1,92 @@
 # gemini_api.py
 import os
+import io
 import json
 import re
 import streamlit as st
-import google.generativeai as genai
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part
+from PIL import Image
 
-def obtener_modelo_valido(api_key):
+PROJECT_ID = "postmortem-503102"
+
+def _init_vertex():
+    """Inicializa Vertex AI usando las credenciales de st.secrets o Application Default Credentials."""
+    if st.session_state.get("vertex_initialized"):
+        return True
+    try:
+        from google.oauth2 import service_account
+        if "gcp_service_account" in st.secrets:
+            secret_val = st.secrets["gcp_service_account"]
+            if isinstance(secret_val, str):
+                cred_dict = json.loads(secret_val)
+            else:
+                cred_dict = dict(secret_val)
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            credentials = service_account.Credentials.from_service_account_info(cred_dict)
+            vertexai.init(project=PROJECT_ID, location="us-central1", credentials=credentials)
+        else:
+            vertexai.init(project=PROJECT_ID, location="us-central1")
+        st.session_state["vertex_initialized"] = True
+        return True
+    except Exception as e:
+        st.error(f"❌ Error inicializando Vertex AI: {e}")
+        return False
+
+def obtener_modelo_valido():
     if "modelo_gemini_cache" in st.session_state:
         return st.session_state["modelo_gemini_cache"]
 
-    msg_placeholder = st.empty()
-    msg_placeholder.info("⏳ Buscando IA disponible...")
-    
+    if not _init_vertex():
+        return None
+
+    msg = st.empty()
+    msg.info("⏳ Buscando IA disponible...")
+
+    # Modelos Vertex AI actuales (sin prefijo models/, sin versión numérica)
     priority_list = [
-        "models/gemini-3-flash-preview",
-        "models/gemini-3.1-flash-lite-preview",
-        "models/gemini-3.1-flash-lite",
-        "models/gemini-2.5-flash-lite",
-        "models/gemini-flash-lite-latest",
-        "models/nano-banana-pro-preview"
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-002",
+        "gemini-2.5-flash-001",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash-002",
+        "gemini-1.5-flash-001",
+        "gemini-1.5-pro-002",
     ]
-    
-    genai.configure(api_key=api_key.strip())
-    
+
+    errores = []
     for model_name in priority_list:
         try:
-            model = genai.GenerativeModel(model_name)
-            model.generate_content("test")
+            m = GenerativeModel(model_name)
+            m.generate_content("test")
             st.session_state["modelo_gemini_cache"] = model_name
-            msg_placeholder.empty()
+            msg.empty()
             return model_name
-        except Exception:
+        except Exception as e:
+            errores.append(f"{model_name}: {e}")
             continue
-            
-    msg_placeholder.empty()
-    st.session_state["modelo_gemini_cache"] = priority_list[0]
-    return priority_list[0]
+
+    msg.empty()
+    st.error("❌ Ningún modelo de Vertex AI respondió. Errores:")
+    for err in errores:
+        st.write(err)
+    return None
 
 from google_services import obtener_catalogo_ccr3
 
 def extraer_datos_gemini(imagenes_pil):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    
-    if not api_key:
-        st.error("⚠️ No se encontró la API Key.")
+    if not _init_vertex():
         return None
-        
-    try:
-        genai.configure(api_key=api_key.strip())
-    except Exception as e:
-        st.error(f"❌ Error API: {e}")
-        return None
-    
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
-    
+
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
-        st.error("❌ Ningún modelo en tu API Key funcionó o todos devolvieron error 404.")
+        st.error("❌ No se pudo encontrar un modelo de Vertex AI.")
         return None
-        
-    # Obtener CCR3 dinámicamente
+
     ccr3_opciones = obtener_catalogo_ccr3()
     ccr3_texto = "\n    - ".join(ccr3_opciones)
-    
+
     prompt = f"""
     Eres un asistente experto en lectura de capturas de pantalla de operaciones de atención al cliente (postmortem).
     Se te proporcionarán varias imágenes que corresponden a un mismo caso continuo. Debes analizarlas todas en conjunto.
@@ -109,41 +134,38 @@ def extraer_datos_gemini(imagenes_pil):
         "contactos": "Contactos mencionados si aplica"
     }}
     """
-    
+
     try:
-        from PIL import Image
-        model = genai.GenerativeModel(modelo_seguro)
-        
-        # Enviamos el prompt seguido de TODAS las imágenes en la lista (optimizadas)
+        model = GenerativeModel(modelo_seguro)
+
         contenido = [prompt]
         if not isinstance(imagenes_pil, list):
             imagenes_pil = [imagenes_pil]
-            
+
         for img in imagenes_pil:
-            # Optimización de tamaño extrema para acelerar el procesamiento de IA
             max_size = 800
             if max(img.size) > max_size:
                 ratio = max_size / float(max(img.size))
                 new_size = (int(img.width * ratio), int(img.height * ratio))
                 img = img.resize(new_size, Image.Resampling.LANCZOS)
-            contenido.append(img)
-            
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='JPEG')
+            contenido.append(Part.from_data(data=img_byte_arr.getvalue(), mime_type="image/jpeg"))
+
         response = model.generate_content(
             contenido,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                response_mime_type="application/json"
-            )
+            generation_config={"temperature": 0.1, "response_mime_type": "application/json"}
         )
-        
+
         try:
             raw_text = response.text.replace("```json", "").replace("```", "").strip()
         except ValueError:
             st.error("❌ La IA no pudo generar una respuesta (posible bloqueo por seguridad o error de formato).")
             return None
-            
+
         start = raw_text.find('{')
-        
         if start != -1:
             raw_text = raw_text[start:]
             end = raw_text.rfind('}')
@@ -151,45 +173,44 @@ def extraer_datos_gemini(imagenes_pil):
                 try:
                     parsed_json = json.loads(raw_text[:end+1], strict=False)
                     parsed_json = {k.lower(): v for k, v in parsed_json.items()}
-                    st.toast(f"✅ ¡Datos extraídos con éxito usando {modelo_seguro}!", icon="🕵️‍♂️")
+                    st.toast(f"✅ ¡Datos extraídos con éxito usando Vertex AI ({modelo_seguro})!", icon="🕵️‍♂️")
                     return parsed_json
                 except json.JSONDecodeError:
                     end = raw_text.rfind('}', 0, end)
-                    
+
         st.error("❌ La IA no devolvió un formato válido.")
         return None
-        
+
     except Exception as e:
         if "modelo_gemini_cache" in st.session_state:
             del st.session_state["modelo_gemini_cache"]
+        if "vertex_initialized" in st.session_state:
+            del st.session_state["vertex_initialized"]
         error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            st.error(f"⚠️ Has alcanzado el límite de uso de la IA. Detalle del bloqueo: {error_msg}")
-        else:
-            st.error(f"❌ Error interno: {error_msg}")
+        st.error(f"❌ Error con Vertex AI: {error_msg}")
         return None
 
+
 def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=""):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    if not api_key:
-        return {"om1": "No API Key", "om2": "No API Key", "om3": "No API Key", "om4": "No API Key"}
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    if not _init_vertex():
+        return {"om1": "Error Vertex AI", "om2": "Error", "om3": "Error", "om4": "Error"}
+
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
         return {"om1": "Error Modelo", "om2": "Error", "om3": "Error", "om4": "Error"}
-        
+
     lista_comunicacion = []
     for fila in comunicacion_data[1:]:
         if len(fila) >= 3 and fila[2].strip():
             lista_comunicacion.append(fila[2].strip())
-            
+
     lista_gestion = []
     for fila in gestion_data[1:]:
         if len(fila) >= 2 and fila[1].strip():
             lista_gestion.append(fila[1].strip())
-            
+
     es_bot = "bot" in agente_c.lower()
-    
+
     instrucciones_om = f"""
     Tienes dos listas de errores definidos:
     
@@ -205,7 +226,7 @@ def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=
     3. Asigna los errores encontrados a las claves 'om1', 'om2', 'om3' y 'om4' por orden de importancia.
     4. DEBES intentar extraer entre 2 y 4 OMs (oportunidades de mejora) si aplican. Si hay menos de 4, llena los espacios sobrantes con 'no aplica'. Si la interacción fue excelente y no hay errores, pon 'no aplica' en todas.
     """ if not es_bot else "El agente es un BOT. NO busques Oportunidades de Mejora (OM), asigna directamente 'no aplica' a las claves 'om1', 'om2', 'om3' y 'om4'."
-            
+
     prompt = f"""
     Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
     
@@ -218,55 +239,49 @@ def evaluar_oms_gemini(transcripcion, comunicacion_data, gestion_data, agente_c=
        
     Devuelve ÚNICAMENTE un JSON válido con las claves "om1", "om2", "om3" y "om4".
     """
-    
+
     try:
-        model = genai.GenerativeModel(modelo_seguro)
+        model = GenerativeModel(modelo_seguro)
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                response_mime_type="application/json"
-            )
+            generation_config={"temperature": 0.1, "response_mime_type": "application/json"}
         )
-        
+
         try:
             raw_text = response.text.replace("```json", "").replace("```", "").strip()
         except ValueError:
             return {"om1": "Bloqueo API", "om2": "Bloqueo API", "om3": "Bloqueo API", "om4": "Bloqueo API"}
-            
+
         start = raw_text.find('{')
-        
         if start != -1:
             raw_text = raw_text[start:]
             end = raw_text.rfind('}')
             if end != -1:
                 parsed_json = json.loads(raw_text[:end+1], strict=False)
                 parsed_json = {k.lower(): v for k, v in parsed_json.items()}
-                
                 for key in ["om1", "om2", "om3", "om4"]:
                     if key not in parsed_json or not parsed_json[key]:
                         parsed_json[key] = "no aplica"
                 return parsed_json
-                
+
         return {"om1": "Error JSON", "om2": "Error", "om3": "Error", "om4": "Error"}
     except Exception as e:
         if "modelo_gemini_cache" in st.session_state:
             del st.session_state["modelo_gemini_cache"]
+        if "vertex_initialized" in st.session_state:
+            del st.session_state["vertex_initialized"]
         error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            friendly_msg = "⚠️ Límite de uso API."
-            return {"om1": friendly_msg, "om2": "No aplica", "om3": "No aplica", "om4": "No aplica"}
         return {"om1": f"Error: {error_msg}", "om2": "Error", "om3": "Error", "om4": "Error"}
 
+
 def evaluar_resumen_gemini(transcripcion):
-    api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyB77IabSlG2eo8_w99_bMbplnrPCynV-Ik"))
-    if not api_key:
-        return "No API Key"
-        
-    modelo_seguro = obtener_modelo_valido(api_key.strip())
+    if not _init_vertex():
+        return "Error Vertex AI"
+
+    modelo_seguro = obtener_modelo_valido()
     if not modelo_seguro:
         return "Error Modelo"
-        
+
     prompt = f"""
     Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
     
@@ -280,21 +295,20 @@ def evaluar_resumen_gemini(transcripcion):
     - La respuesta y gestión de los agentes.
     NO te limites a cortar el texto, debes procesarlo y resumirlo en un párrafo coherente y completo.
     """
-    
+
     try:
-        model = genai.GenerativeModel(modelo_seguro)
+        model = GenerativeModel(modelo_seguro)
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1
-            )
+            generation_config={"temperature": 0.1}
         )
         try:
             return response.text.strip()
         except ValueError:
             return "El modelo no pudo generar un resumen (posible bloqueo por seguridad)."
     except Exception as e:
-        error_msg = str(e)
-        if '429' in error_msg or 'Quota' in error_msg:
-            return "⚠️ Has alcanzado el límite de uso gratuito de la IA. Espera un momento."
-        return f"Error: {error_msg}"
+        if "modelo_gemini_cache" in st.session_state:
+            del st.session_state["modelo_gemini_cache"]
+        if "vertex_initialized" in st.session_state:
+            del st.session_state["vertex_initialized"]
+        return f"Error Vertex AI: {e}"
