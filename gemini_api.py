@@ -13,10 +13,10 @@ def obtener_modelo_valido(api_key):
     msg_placeholder.info("⏳ Buscando IA disponible...")
     
     priority_list = [
-        "models/gemini-1.5-flash",
-        "models/gemini-1.5-flash-8b",
-        "models/gemini-2.5-flash-preview-09-2025",
-        "models/gemini-robotics-er-1.5-preview"
+        "gemini-2.5-flash-preview-09-2025",
+        "gemini-robotics-er-1.5-preview",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-001"
     ]
     
     genai.configure(api_key=api_key.strip())
@@ -32,8 +32,8 @@ def obtener_modelo_valido(api_key):
             continue
             
     msg_placeholder.empty()
-    st.session_state["modelo_gemini_cache"] = priority_list[0]
-    return priority_list[0]
+    st.session_state["modelo_gemini_cache"] = "gemini-2.5-flash-preview-09-2025"
+    return "gemini-2.5-flash-preview-09-2025"
 
 from google_services import obtener_catalogo_ccr3
 
