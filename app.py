@@ -122,14 +122,24 @@ def main():
             if not casos_accion:
                 st.info("No hay casos pendientes de accionar.")
             else:
-                opciones = {f"Fila {c['row_idx']} - Caso {c['caso']} ({c['pais']})": c for c in casos_accion}
+                def label_caso(c):
+                    tip = c.get("tipologia") or c.get("caso") or "Sin tipología"
+                    orden = c.get("order_id") or c.get("user_id") or "Sin orden"
+                    pais = c.get("pais") or ""
+                    return f"{tip} | {orden} | {pais}"
+                opciones = {label_caso(c): c for c in casos_accion}
                 sel = st.selectbox("Selecciona un caso", list(opciones.keys()))
                 if sel: caso_seleccionado = opciones[sel]
         else:
             if not casos_post:
                 st.info("No hay casos pendientes de postmortem.")
             else:
-                opciones = {f"Fila {c['row_idx']} - Caso {c['caso']} ({c['pais']})": c for c in casos_post}
+                def label_caso(c):
+                    tip = c.get("tipologia") or c.get("caso") or "Sin tipología"
+                    orden = c.get("order_id") or c.get("user_id") or "Sin orden"
+                    pais = c.get("pais") or ""
+                    return f"{tip} | {orden} | {pais}"
+                opciones = {label_caso(c): c for c in casos_post}
                 sel = st.selectbox("Selecciona un caso", list(opciones.keys()))
                 if sel: caso_seleccionado = opciones[sel]
                 
@@ -188,6 +198,7 @@ def main():
                                 if r_data.get("order_id"): datos["order_id"] = r_data["order_id"]
                                 if r_data.get("user_id"): datos["user_id"] = r_data["user_id"]
                                 if r_data.get("pais"): datos["pais"] = r_data["pais"]
+                                if r_data.get("tipologia"): datos["caso"] = r_data["tipologia"]
                                 st.session_state["repositorio_row_idx"] = r_data["row_idx"]
                                 
                             st.session_state["datos_extraidos"] = datos

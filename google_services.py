@@ -379,7 +379,6 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         new_doc_id = copied_file.get('id')
         
         # 2. Preparar los reemplazos base
-        from datetime import datetime
         def format_monto(m):
             try:
                 m_f = float(m)
@@ -398,8 +397,12 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         val_devo = datos.get("devolucion_str") if datos.get("devolucion_str") else f"${monto_dev}"
         val_comp = datos.get("compensacion_str") if datos.get("compensacion_str") else f"${monto_comp}"
         
+        from datetime import datetime, timezone, timedelta
+        tz_peru = timezone(timedelta(hours=-5))  # America/Lima (UTC-5)
+        fecha_peru = datetime.now(tz_peru).strftime("%d/%m/%Y")
+        
         variables = {
-            "{{FECHA}}": datetime.now().strftime("%d/%m/%Y"),
+            "{{FECHA}}": fecha_peru,
             "{{CCR3}}": datos.get("ccr3", ""),
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
@@ -441,17 +444,22 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
         if num_contactos == 0 or has_bot:
             variables["{{OM1}}"] = "No aplica"
             variables["{{OM2}}"] = ""
+            # OM_GENERAL: texto plano sin negrita ni color, aparece en la cabecera del doc cuando es BOT
+            variables["{{OM_GENERAL}}"] = "No aplica"
         else:
             most_common = om_counter.most_common(2)
             if len(most_common) >= 1:
                 variables["{{OM1}}"] = most_common[0][0]
                 if len(most_common) >= 2:
                     variables["{{OM2}}"] = most_common[1][0]
+                    variables["{{OM_GENERAL}}"] = f"{most_common[0][0]} y {most_common[1][0]}"
                 else:
                     variables["{{OM2}}"] = ""
+                    variables["{{OM_GENERAL}}"] = most_common[0][0]
             else:
                 variables["{{OM1}}"] = "No aplica"
                 variables["{{OM2}}"] = ""
+                variables["{{OM_GENERAL}}"] = "No aplica"
         
         # 2.1 Preparar reemplazos para los bloques de contactos
         MAX_CONTACTS = 8
@@ -476,8 +484,16 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
                 variables[f"<<START_{i}>>"] = ""
                 variables[f"<<END_{i}>>"] = ""
             else:
-                # Este bloque no se usa, no hacemos reemplazos de texto porque vamos a borrar el bloque completo.
-                pass
+                # Bloque no usado: limpiar variables por si están fuera del bloque en la plantilla
+                variables[f"{{{{NUMERO_CONTACTOS_{i}}}}}"] = ""
+                variables[f"{{{{FECHA_CONTACTO_{i}}}}}"] = ""
+                variables[f"{{{{AGENTES_INFO_{i}}}}}"] = ""
+                variables[f"{{{{LINK_HERO_{i}}}}}"] = ""
+                variables[f"{{{{OM1_{i}}}}}"] = "No aplica" if num_contactos == 0 else ""
+                variables[f"{{{{OM2_{i}}}}}"] = ""
+                variables[f"{{{{OM3_{i}}}}}"] = ""
+                variables[f"{{{{OM4_{i}}}}}"] = ""
+                variables[f"{{{{DESCRIPCION_CONTACTO_{i}}}}}"] = ""
                 
         requests = []
         if monto_comp == "0":
@@ -927,6 +943,8 @@ def obtener_casos_repositorio():
             estado_accion = fila[8].strip().lower()
             estado_post = fila[10].strip().lower()
             img_link = fila[12].strip()
+            # Tipología: columna C (índice 2)
+            tipologia = fila[2].strip() if len(fila) > 2 else ""
             
             data = {
                 "row_idx": row_idx,
@@ -934,7 +952,8 @@ def obtener_casos_repositorio():
                 "order_id": fila[5].strip(),
                 "user_id": fila[6].strip(),
                 "pais": fila[3].strip(),
-                "img_link": img_link
+                "img_link": img_link,
+                "tipologia": tipologia
             }
             
             if estado_accion in ["pendiente", "en proceso"]:

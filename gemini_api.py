@@ -115,6 +115,7 @@ def extraer_datos_gemini(imagenes_pil):
         "ultima_interaccion": "Marca de tiempo del último mensaje",
         "agente_escala": "Nombre del agente",
         "caso": "Tipo de caso reportado",
+        "tipologia": "Tipología o categoría del caso si está indicada, si no pon vacío",
         "numero_caso": "ID o número de caso",
         "pais": "País mencionado (ej. Chile, Perú, etc)",
         "correo": "Correo del cliente",
