@@ -1,11 +1,54 @@
 # text_processor.py
 import os
 import io
+import re
 import json
 import time
 import streamlit as st
 import vertexai
 from vertexai.generative_models import GenerativeModel
+
+def _extraer_json_tolerante(raw_text, reporte_orig, analisis_orig, resolucion_orig):
+    """
+    Intenta parsear JSON estrictamente y, si está incompleto o truncado,
+    rescata las secciones mediante regex para no perder el trabajo de la IA.
+    """
+    datos = {}
+    start = raw_text.find('{')
+    if start != -1:
+        text_candidate = raw_text[start:]
+        end = text_candidate.rfind('}')
+        if end != -1:
+            try:
+                datos = json.loads(text_candidate[:end+1], strict=False)
+            except json.JSONDecodeError:
+                datos = {}
+
+    claves = ["reporte_editado", "analisis_editado", "resolucion_editado"]
+    for clave in claves:
+        if not datos.get(clave):
+            # Intentar extraer campo cerrado
+            patron_cerrado = rf'"{clave}"\s*:\s*"(.*?)(?<!\\)"'
+            match = re.search(patron_cerrado, raw_text, re.DOTALL)
+            if match:
+                val = match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t').strip()
+                datos[clave] = val
+            else:
+                # Si quedó cortado a mitad del texto (sin comilla final)
+                patron_abierto = rf'"{clave}"\s*:\s*"(.*)'
+                match_open = re.search(patron_abierto, raw_text, re.DOTALL)
+                if match_open:
+                    val = match_open.group(1).strip()
+                    val = re.sub(r'["}\s]+$', '', val)
+                    val = val.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t').strip()
+                    datos[clave] = val
+
+    rep = datos.get("reporte_editado") or reporte_orig
+    ana = datos.get("analisis_editado") or analisis_orig
+    res = datos.get("resolucion_editado") or resolucion_orig
+    
+    exito = bool(datos.get("reporte_editado") or datos.get("analisis_editado") or datos.get("resolucion_editado"))
+    return rep, ana, res, exito
 
 def mejorar_redaccion(reporte_cliente, analisis_caso, resolucion_caso, pais):
     """
@@ -46,48 +89,47 @@ TEXTOS A REESCRIBIR (MEJÓRALOS OBLIGATORIAMENTE):
 [Análisis]: {analisis_caso}
 [Resolución]: {resolucion_caso}
 
-IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido. El JSON debe tener exactamente estas claves:
+IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido cerrado correctamente. El JSON debe tener exactamente estas claves:
 "reporte_editado", "analisis_editado", "resolucion_editado".
 No agregues comentarios ni comillas invertidas fuera del JSON.
 """
 
     model = GenerativeModel(modelo_seguro)
+    ultimo_error = None
+
     for intento in range(3):
         try:
             response = model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.1, "max_output_tokens": 2048, "response_mime_type": "application/json"}
+                generation_config={"temperature": 0.1, "max_output_tokens": 8192, "response_mime_type": "application/json"}
             )
 
             try:
                 raw_text = response.text.replace("```json", "").replace("```", "").strip()
             except ValueError:
-                return reporte_cliente, analisis_caso, resolucion_caso, "La IA no pudo generar el texto (posible bloqueo por seguridad o formato)."
+                ultimo_error = "La IA no pudo generar el texto (posible bloqueo por seguridad o formato)."
+                if intento < 2:
+                    time.sleep(2)
+                    continue
+                return reporte_cliente, analisis_caso, resolucion_caso, ultimo_error
 
-            start = raw_text.find('{')
-            if start != -1:
-                raw_text = raw_text[start:]
-                end = raw_text.rfind('}')
-                if end != -1:
-                    datos = json.loads(raw_text[:end+1], strict=False)
-                else:
-                    return reporte_cliente, analisis_caso, resolucion_caso, "El formato JSON quedó incompleto (sin cierre)."
-            else:
-                return reporte_cliente, analisis_caso, resolucion_caso, "La IA no devolvió un JSON válido."
-
-            if not datos.get("reporte_editado"):
-                return reporte_cliente, analisis_caso, resolucion_caso, "La IA devolvió campos vacíos, se usaron los originales."
-            return datos.get("reporte_editado", ""), datos.get("analisis_editado", ""), datos.get("resolucion_editado", ""), None
+            rep, ana, res, exito = _extraer_json_tolerante(raw_text, reporte_cliente, analisis_caso, resolucion_caso)
+            if exito:
+                return rep, ana, res, None
+            
+            ultimo_error = "La IA devolvió un formato no reconocido."
+            if intento < 2:
+                time.sleep(2)
+                continue
 
         except Exception as e:
             if "modelo_gemini_cache" in st.session_state:
                 del st.session_state["modelo_gemini_cache"]
             if "vertex_initialized" in st.session_state:
                 del st.session_state["vertex_initialized"]
-            error_msg = str(e)
+            ultimo_error = f"Error del mejorador: {e}"
             if intento < 2:
                 time.sleep(2)
                 continue
-            return reporte_cliente, analisis_caso, resolucion_caso, f"Error del mejorador: {error_msg}"
 
-    return reporte_cliente, analisis_caso, resolucion_caso, "No se pudo mejorar el texto después de varios intentos."
+    return reporte_cliente, analisis_caso, resolucion_caso, ultimo_error or "No se pudo mejorar el texto después de varios intentos."

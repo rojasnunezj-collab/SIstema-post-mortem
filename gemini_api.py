@@ -284,17 +284,23 @@ def evaluar_resumen_gemini(transcripcion):
         return "Error Modelo"
 
     prompt = f"""
-    Eres un auditor de calidad de atención al cliente. Analiza la siguiente transcripción de chat entre un agente y un cliente.
+    Eres un analista de operaciones de atención al cliente. Tu objetivo es redactar un resumen ejecutivo y narrativo de la siguiente interacción para un postmortem corporativo.
     
     TRANSCRIPCIÓN:
     {transcripcion}
     
-    TAREA:
-    Elabora un resumen narrativo de toda la conversación de principio a fin, asegurándote de incluir:
-    - El motivo EXACTO del contacto.
-    - El problema detallado del cliente.
-    - La respuesta y gestión de los agentes.
-    NO te limites a cortar el texto, debes procesarlo y resumirlo en un párrafo coherente y completo.
+    REGLAS ESTRICTAS DE REDACCIÓN:
+    1. Ve DIRECTO al grano. Empieza directamente narrando lo sucedido en la interacción (ej: "El cliente se comunica reportando...", "El usuario consulta por...").
+    2. ESTÁ TOTALMENTE PROHIBIDO incluir preámbulos, saludos o introducciones tales como:
+       - "Como auditor de calidad..."
+       - "El análisis de la transcripción revela lo siguiente:"
+       - "A continuación se presenta el resumen..."
+       - "En esta interacción..."
+    3. Sintetiza toda la conversación en un único párrafo conciso y fluido (máximo 4 a 5 líneas) que cubra:
+       - Motivo de contacto y problema del cliente.
+       - Acciones, validaciones o respuestas del agente (o bot).
+       - Resolución final o estado en que quedó el caso.
+    4. Tono neutral, profesional y objetivo en tercera persona.
     """
 
     try:
@@ -304,7 +310,20 @@ def evaluar_resumen_gemini(transcripcion):
             generation_config={"temperature": 0.1}
         )
         try:
-            return response.text.strip()
+            texto = response.text.strip()
+            # Limpiar cualquier preámbulo residual que la IA haya colocado
+            patrones_preambulo = [
+                r"^como auditor(?: de calidad)?[^:\n]*[:\n-]+\s*",
+                r"^el an[áa]lisis de la transcripci[óo]n[^:\n]*[:\n-]+\s*",
+                r"^an[áa]lisis de la transcripci[óo]n[^:\n]*[:\n-]+\s*",
+                r"^an[áa]lisis de la interacci[óo]n[^:\n]*[:\n-]+\s*",
+                r"^resumen de la interacci[óo]n[^:\n]*[:\n-]+\s*",
+                r"^a continuaci[óo]n[^:\n]*[:\n-]+\s*",
+            ]
+            for pat in patrones_preambulo:
+                texto = re.sub(pat, "", texto, flags=re.IGNORECASE).strip()
+            texto = re.sub(r"^[-*•\s]+", "", texto).strip()
+            return texto
         except ValueError:
             return "El modelo no pudo generar un resumen (posible bloqueo por seguridad)."
     except Exception as e:

@@ -390,12 +390,47 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             except:
                 return str(m)
 
-        monto_dev = format_monto(datos.get('monto_devolucion', 0))
-        monto_comp = format_monto(datos.get('compensacion', 0))
+        def to_float(val):
+            try:
+                if val is None or str(val).strip() == "":
+                    return 0.0
+                return float(str(val).replace(',', '.').replace('$', '').strip())
+            except ValueError:
+                return 0.0
+
+        monto_ped_raw = datos.get('monto_pedido', 0)
+        monto_dev_raw = datos.get('monto_devolucion', 0)
+        monto_comp_raw = datos.get('compensacion', 0)
+
+        ped_f = to_float(monto_ped_raw)
+        dev_f = to_float(monto_dev_raw)
+        comp_f = to_float(monto_comp_raw)
+
+        monto_ped = format_monto(ped_f)
+        monto_dev = format_monto(dev_f)
+        monto_comp = format_monto(comp_f)
         otras_str = datos.get("otras_gestiones", "")
         
-        val_devo = datos.get("devolucion_str") if datos.get("devolucion_str") else f"${monto_dev}"
+        # Para la devolución:
+        if datos.get("devolucion_str"):
+            val_devo = datos.get("devolucion_str")
+        elif dev_f > 0:
+            val_devo = f"${monto_dev}"
+        elif ped_f > 0:
+            val_devo = f"${monto_ped}"
+        else:
+            val_devo = "$0"
+
         val_comp = datos.get("compensacion_str") if datos.get("compensacion_str") else f"${monto_comp}"
+        
+        # Para el valor del reclamo (valor declarado del pedido):
+        # El valor del reclamo es prioritariamente el monto del pedido.
+        if ped_f > 0:
+            monto_reclamo = monto_ped
+        elif dev_f > 0:
+            monto_reclamo = monto_dev
+        else:
+            monto_reclamo = "0"
         
         from datetime import datetime, timezone, timedelta
         tz_peru = timezone(timedelta(hours=-5))  # America/Lima (UTC-5)
@@ -407,7 +442,7 @@ def generar_documento_postmortem(datos, rep_limpio, ana_limpio, res_limpia, imag
             "{{PROBLEMA}}": datos.get("motivo_reclamo", ""),
             "{{CASO}}": datos.get("caso", ""),
             "{{DEVOLUCION}}": val_devo,
-            "{{VALOR_RECLAMO}}": f"${monto_dev}",
+            "{{VALOR_RECLAMO}}": f"${monto_reclamo}",
             "{{TEXTO_DEVOLUCION}}": "",
             "{{COMPENSACION_FINAL}}": val_comp,
             "{{TEXTO_COMPENSACION}}": "",

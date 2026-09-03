@@ -203,12 +203,30 @@ def main():
                                 
                             st.session_state["datos_extraidos"] = datos
                             st.session_state["modo_manual"] = False
+                            
+                            def _to_float(v):
+                                try:
+                                    if v is None or str(v).strip() == "": return 0.0
+                                    return float(str(v).replace(',', '.').replace('$', '').strip())
+                                except ValueError:
+                                    return 0.0
+                                    
+                            p_init = _to_float(datos.get("monto_pedido", 0.0))
+                            d_init = _to_float(datos.get("monto_devolucion", p_init))
+                            st.session_state["monto_pedido_ctrl"] = p_init
+                            st.session_state["monto_devolucion_ctrl"] = d_init if d_init > 0 else p_init
+                            st.session_state["propina_ctrl"] = _to_float(datos.get("propina", 0.0))
+                            st.session_state["prev_monto_pedido_ctrl"] = p_init
                             st.success("✅ ¡Datos extraídos con éxito!")
                         
         with col_btn2:
             if st.button("Llenado Manual (Post de Guru)", type="secondary", use_container_width=True):
                 st.session_state["datos_extraidos"] = {}
                 st.session_state["modo_manual"] = True
+                st.session_state["monto_pedido_ctrl"] = 0.0
+                st.session_state["monto_devolucion_ctrl"] = 0.0
+                st.session_state["propina_ctrl"] = 0.0
+                st.session_state["prev_monto_pedido_ctrl"] = 0.0
                 st.success("📝 Modo manual activado. Puedes llenar los campos a continuación.")
         
         if "datos_extraidos" in st.session_state:
@@ -314,15 +332,34 @@ def main():
                 except ValueError:
                     return 0.0
 
-            monto_pedido_val = safe_float(d.get("monto_pedido", 0.0))
-            propina_val = safe_float(d.get("propina", 0.0))
+            if "monto_pedido_ctrl" not in st.session_state:
+                st.session_state["monto_pedido_ctrl"] = safe_float(d.get("monto_pedido", 0.0))
+            if "monto_devolucion_ctrl" not in st.session_state:
+                dev_init = safe_float(d.get("monto_devolucion", 0.0))
+                st.session_state["monto_devolucion_ctrl"] = dev_init if dev_init > 0 else st.session_state["monto_pedido_ctrl"]
+            if "propina_ctrl" not in st.session_state:
+                st.session_state["propina_ctrl"] = safe_float(d.get("propina", 0.0))
+            if "prev_monto_pedido_ctrl" not in st.session_state:
+                st.session_state["prev_monto_pedido_ctrl"] = st.session_state["monto_pedido_ctrl"]
+
+            def on_pedido_change():
+                nuevo_ped = st.session_state.get("monto_pedido_ctrl", 0.0)
+                prev_ped = st.session_state.get("prev_monto_pedido_ctrl", 0.0)
+                curr_dev = st.session_state.get("monto_devolucion_ctrl", 0.0)
+                # Si la devolución está en 0 o coincidía con el pedido previo, se sincroniza automáticamente
+                if curr_dev == 0.0 or curr_dev == prev_ped:
+                    st.session_state["monto_devolucion_ctrl"] = nuevo_ped
+                st.session_state["prev_monto_pedido_ctrl"] = nuevo_ped
+                if "datos_extraidos" in st.session_state:
+                    st.session_state["datos_extraidos"]["monto_pedido"] = nuevo_ped
+
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
-                monto_pedido = st.number_input("PEDIDO ($)", value=monto_pedido_val, step=1.0)
+                monto_pedido = st.number_input("PEDIDO ($)", key="monto_pedido_ctrl", step=1.0, on_change=on_pedido_change)
             with col_m2:
-                propina = st.number_input("PROPINA ($)", value=propina_val, step=1.0)
+                propina = st.number_input("PROPINA ($)", key="propina_ctrl", step=1.0)
             with col_m3:
-                devolucion = st.number_input("DEVOLUCION ($)", value=monto_pedido_val, step=1.0)
+                devolucion = st.number_input("DEVOLUCION ($)", key="monto_devolucion_ctrl", step=1.0)
             
             # Math lógica
             pais_lower = str(pais).strip().lower()
@@ -362,6 +399,17 @@ def main():
             else:
                 st.info(f"🔵 País sin límite configurado (Total: ${total:.2f})")
             
+            def fmt_num(m):
+                try:
+                    m_f = float(m)
+                    if m_f == 0:
+                        return "0"
+                    if m_f.is_integer():
+                        return str(int(m_f))
+                    return f"{m_f:g}"
+                except:
+                    return str(m)
+
             if "Postmortem Completo" in tipo_proceso:
                 st.divider()
                 st.markdown("**3. Resolución del caso (Métodos y Fechas):**")
@@ -392,15 +440,17 @@ def main():
                 def armar_texto(opcion, fecha, monto):
                     if opcion == "Ninguna":
                         return ""
+                    m_str = fmt_num(monto)
                     if opcion in ["Tarjeta de débito", "Tarjeta de crédito", "Tarjeta prepago"]:
-                        return f"${monto} a {opcion.lower()}; se verá reflejado en 7 días hábiles"
+                        return f"${m_str} a {opcion.lower()}; se verá reflejado en 7 días hábiles"
                     elif opcion in ["Cupón", "Wallet"]:
                         fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "xx/xx/xxxx"
                         opt_clean = opcion.lower().replace("ó", "o")
-                        return f"${monto} a {opt_clean} con una vigencia hasta {fecha_str}"
+                        return f"${m_str} a {opt_clean} con una vigencia hasta {fecha_str}"
                     return ""
                     
-                devolucion_str = armar_texto(op_dev, f_dev, devolucion)
+                monto_dev_efectivo = devolucion if devolucion > 0 else monto_pedido
+                devolucion_str = armar_texto(op_dev, f_dev, monto_dev_efectivo)
                 compensacion_str = armar_texto(op_comp, f_comp, compensacion)
                 otras_gestiones_str = "Otras gestiones: " + "/".join(otras_seleccionadas) if otras_seleccionadas else ""
             else:
@@ -446,6 +496,14 @@ def main():
                 usar_ia = False
             
             if accion_continuar:
+                # Sincronización de seguridad: si devolucion es 0 y hay monto de pedido, sincronizar
+                monto_dev_final = devolucion if devolucion > 0 else monto_pedido
+                monto_ped_str = fmt_num(monto_pedido)
+                monto_dev_str = fmt_num(monto_dev_final)
+                
+                if "Postmortem Completo" in tipo_proceso and not devolucion_str and op_dev != "Ninguna" and monto_dev_final > 0:
+                    devolucion_str = armar_texto(op_dev, f_dev, monto_dev_final)
+
                 # Save data to session
                 st.session_state["datos_finales"] = {
                     "numero_caso": d.get("numero_caso", ""),
@@ -461,11 +519,11 @@ def main():
                     "ccr3": ccr3,
                     "motivo_reclamo": problema,
                     "monto_pedido": monto_pedido,
-                    "monto_devolucion": devolucion,
-                    "devolucion_str": devolucion_str if "Postmortem Completo" in tipo_proceso else f"${devolucion}",
+                    "monto_devolucion": monto_dev_final,
+                    "devolucion_str": devolucion_str if "Postmortem Completo" in tipo_proceso else f"${monto_dev_str}",
                     "propina": propina,
                     "compensacion": compensacion,
-                    "compensacion_str": compensacion_str if "Postmortem Completo" in tipo_proceso else f"${compensacion}",
+                    "compensacion_str": compensacion_str if "Postmortem Completo" in tipo_proceso else f"${fmt_num(compensacion)}",
                     "otras_gestiones": otras_gestiones_str if "Postmortem Completo" in tipo_proceso else "",
                     "numeros": numeros,
                     "telefono": telefono,
@@ -868,7 +926,7 @@ def mostrar_listas(dfin):
     c5.markdown("**TERMINO DE ACCION**")
     c5.code(dfin['fin_accion'], language="text")
     
-    if dfin['es_influencer'] or dfin['is_amenaza'] or dfin['monto_devolucion'] > 0:
+    if dfin.get('es_influencer') or dfin.get('is_amenaza') or dfin.get('monto_devolucion', 0) > 0 or dfin.get('monto_pedido', 0) > 0:
         st.divider()
         st.markdown("### Devolución")
         c1, c2, c3, c4 = st.columns(4)
@@ -883,12 +941,15 @@ def mostrar_listas(dfin):
         
         c5, c6, c7 = st.columns(3)
         c5.markdown("**DEVOLUCION**")
-        val_dev = dfin['devolucion_str'] if dfin.get('devolucion_str') else f"${dfin['monto_devolucion']}"
+        val_dev = dfin.get('devolucion_str')
+        if not val_dev:
+            m_d = dfin.get('monto_devolucion') or dfin.get('monto_pedido', 0)
+            val_dev = f"${m_d}"
         c5.code(val_dev, language="text")
         c6.markdown("**PROPINA**")
-        c6.code(dfin['propina'], language="text")
+        c6.code(dfin.get('propina', 0), language="text")
         c7.markdown("**COMPENSACION FINAL**")
-        val_comp = dfin['compensacion_str'] if dfin.get('compensacion_str') else f"${dfin['compensacion']}"
+        val_comp = dfin.get('compensacion_str') if dfin.get('compensacion_str') else f"${dfin.get('compensacion', 0)}"
         c7.code(val_comp, language="text")
         
         st.markdown("**LINK**")
